@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Unlisted — Midnight Carriage Card Game</title>
+    <meta
+      name="description"
+      content="Pair off the manifest tickets across a midnight carriage table and leave the Inspector holding The Unlisted."
+    />
+    <link rel="stylesheet" href="./styles/main.css" />
+  </head>
+  <body>
+    <div id="app" class="app-shell">
+      <header class="topbar" role="banner">
+        <div class="brand-block">
+          <h1 class="game-title">THE UNLISTED</h1>
+          <p class="game-subtitle" id="encounter-subtitle">Midnight Line · Carriage Duel</p>
+        </div>
+
+        <form id="duel-controls" class="controls-bar" aria-label="Duel settings">
+          <label class="control-field" for="seed-input">
+            <span class="field-label">Seed</span>
+            <input
+              id="seed-input"
+              name="seed"
+              type="text"
+              maxlength="48"
+              autocomplete="off"
+              spellcheck="false"
+              value="LINE-1926"
+            />
+          </label>
+
+          <label class="control-field" for="pairs-select">
+            <span class="field-label">Pairs</span>
+            <select id="pairs-select" name="pairs">
+              <option value="6" selected>6 (13)</option>
+              <option value="7">7 (15)</option>
+              <option value="8">8 (17)</option>
+              <option value="9">9 (19)</option>
+              <option value="10">10 (21)</option>
+              <option value="11">11 (23)</option>
+              <option value="12">12 (25)</option>
+            </select>
+          </label>
+
+          <label class="control-field" for="tier-select">
+            <span class="field-label">Inspector</span>
+            <select id="tier-select" name="tier">
+              <option value="RAMP" selected>Ramp T1→T5</option>
+              <option value="1">Tier 1 · Novice</option>
+              <option value="2">Tier 2 · Examiner</option>
+              <option value="3">Tier 3 · Dining Car</option>
+              <option value="4">Tier 4 · Sleeper</option>
+              <option value="5">Tier 5 · Chief</option>
+            </select>
+          </label>
+
+          <label class="control-field" for="starter-select">
+            <span class="field-label">Starter</span>
+            <select id="starter-select" name="starter">
+              <option value="ALTERNATE" selected>Alternate</option>
+              <option value="PLAYER_DRAWS_FIRST">You Draw 1st</option>
+              <option value="PLAYER_OFFERS_FIRST">You Offer 1st</option>
+            </select>
+          </label>
+
+          <div class="control-buttons">
+            <button type="submit" class="btn btn-brass" id="apply-seed-btn">New Run</button>
+            <button type="button" class="btn btn-subtle" id="new-seed-btn">New Seed</button>
+            <button type="button" class="btn btn-subtle" id="restart-btn" title="Replay current duel">
+              Replay
+            </button>
+          </div>
+
+          <label class="toggle-field" for="reduced-motion-toggle">
+            <input id="reduced-motion-toggle" type="checkbox" />
+            <span>Reduced motion</span>
+          </label>
+        </form>
+      </header>
+
+      <main class="carriage-table" id="carriage-table" aria-label="Carriage card table">
+        <!-- Inspector Side (Across the Table) -->
+        <section class="seat seat-inspector" aria-labelledby="inspector-heading">
+          <div class="seat-header">
+            <div class="seat-title-group">
+              <h2 id="inspector-heading" class="seat-name">Ticket Inspector</h2>
+              <span class="tier-badge" id="inspector-tier-badge">T1 · Novice Collector</span>
+              <span class="role-badge" id="inspector-role-badge">OFFERER</span>
+            </div>
+            <div class="seat-meta">
+              <span class="count-pill" id="inspector-count">0 tickets</span>
+              <span class="risk-note" id="inspector-risk-note"></span>
+            </div>
+          </div>
+
+          <div
+            class="ticket-fan inspector-fan"
+            id="inspector-fan"
+            role="group"
+            aria-label="Inspector ticket fan"
+          ></div>
+        </section>
+
+        <!-- Center Fold-Down Table Surface -->
+        <section class="table-center" aria-live="polite">
+          <div class="status-strip">
+            <div class="phase-banner" id="phase-banner">
+              <span class="phase-tag" id="phase-tag">TURN 1</span>
+              <p class="phase-prompt" id="phase-prompt">Preparing manifest…</p>
+            </div>
+
+            <div class="streak-box" id="streak-box" aria-label="Final Call Unlisted transfer streak">
+              <span class="streak-label">Unlisted Streak</span>
+              <div class="streak-pips" id="streak-pips"></div>
+              <span class="streak-caption" id="streak-caption">0 / 3 to Final Call</span>
+            </div>
+          </div>
+
+          <div class="spotlight-tray" id="spotlight-tray"></div>
+
+          <div class="result-panel hidden" id="result-panel" role="region" aria-label="Duel outcome">
+            <p class="result-kicker" id="result-kicker">END OF STOP</p>
+            <h2 class="result-title" id="result-title">Manifest Cleared</h2>
+            <p class="result-body" id="result-body"></p>
+            <div class="result-actions">
+              <button type="button" class="btn btn-brass" id="next-duel-btn">
+                Next Carriage (Keep Run &amp; Habits)
+              </button>
+              <button type="button" class="btn btn-subtle" id="replay-duel-btn">
+                Replay Stop
+              </button>
+              <button type="button" class="btn btn-subtle" id="reset-run-btn">
+                Fresh Run (Reset AI)
+              </button>
+            </div>
+          </div>
+
+          <details class="manifest-drawer" id="manifest-drawer">
+            <summary class="manifest-summary">
+              <span>Manifest Ledger (click to inspect cleared pairs)</span>
+              <span id="manifest-count">0 / 6 pairs cleared</span>
+            </summary>
+            <div class="manifest-list" id="manifest-list"></div>
+          </details>
+        </section>
+
+        <!-- Player Side (Near Edge) -->
+        <section class="seat seat-player" aria-labelledby="player-heading">
+          <div class="seat-header">
+            <div class="seat-title-group">
+              <h2 id="player-heading" class="seat-name">Your Hand</h2>
+              <span class="role-badge" id="player-role-badge">DRAWER</span>
+            </div>
+            <div class="seat-actions">
+              <span class="count-pill" id="player-count">0 tickets</span>
+              <span class="swap-status" id="swap-status"></span>
+              <button type="button" class="btn btn-brass hidden" id="commit-offer-btn">
+                Commit Fan
+              </button>
+            </div>
+          </div>
+
+          <div
+            class="ticket-fan player-fan"
+            id="player-fan"
+            role="group"
+            aria-label="Your ticket hand"
+          ></div>
+
+          <div class="table-footer">
+            <p class="kbd-hint" id="kbd-hint">
+              Arrows + Enter to pick/swap · Press C to commit fan.
+            </p>
+            <button
+              type="button"
+              class="dev-toggle-btn"
+              id="dev-trace-toggle"
+              aria-expanded="false"
+              aria-controls="dev-trace-panel"
+              title="Developer-only Inspector AI decision trace (Alt+D)"
+            >
+              Dev Trace
+            </button>
+          </div>
+        </section>
+      </main>
+
+      <!-- Developer-Only AI Decision Trace (Hidden in Normal Play) -->
+      <aside
+        id="dev-trace-panel"
+        class="dev-trace-panel hidden"
+        aria-label="Developer-only AI decision trace"
+      >
+        <div class="dev-trace-header">
+          <div>
+            <span class="dev-pill">DEV ONLY</span>
+            <strong id="dev-trace-title">Inspector Decision Trace</strong>
+          </div>
+          <span class="dev-trace-meta" id="dev-trace-meta"></span>
+        </div>
+        <p class="dev-trace-summary" id="dev-trace-summary"></p>
+        <div class="dev-buckets" id="dev-buckets"></div>
+        <ol class="dev-trace-list" id="dev-trace-list"></ol>
+      </aside>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
