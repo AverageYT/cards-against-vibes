@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Unlisted — In-Browser Automated Tests</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #0d131f;
+        color: #ebe3d2;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        line-height: 1.5;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 1.2rem;
+        color: #e7be6f;
+      }
+      h2 {
+        margin: 18px 0 8px;
+        font-size: 0.95rem;
+        color: #c99a49;
+      }
+      .summary {
+        padding: 10px 14px;
+        border-radius: 6px;
+        margin: 12px 0 18px;
+        font-weight: 700;
+      }
+      .summary.pass {
+        background: #173022;
+        border: 1px solid #5ea372;
+      }
+      .summary.fail {
+        background: #3a1816;
+        border: 1px solid #d46a59;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      li {
+        padding: 9px 12px;
+        border-radius: 4px;
+        background: #151e2e;
+        border-left: 4px solid #5ea372;
+      }
+      li.fail {
+        border-left-color: #d46a59;
+      }
+      pre {
+        margin: 8px 0 0;
+        white-space: pre-wrap;
+        color: #ffb9ae;
+        font-size: 0.82rem;
+      }
+      a {
+        color: #e7be6f;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>The Unlisted — Browser Test Runner</h1>
+    <p><a href="../index.html">← Back to game</a></p>
+    <div id="summary" class="summary">Running Phase 1 + Phase 2 suites…</div>
+    <div id="sections"></div>
+
+    <script type="module">
+      import { runPhase1Suite } from "./phase1Suite.js";
+      import { runPhase2Suite } from "./phase2Suite.js";
+
+      const summaryEl = document.getElementById("summary");
+      const sectionsEl = document.getElementById("sections");
+
+      const suites = [
+        { label: "Phase 1 — Core Mechanics & Replay", report: runPhase1Suite() },
+        { label: "Phase 2 — Inspector AI, Learning & Info Barrier", report: runPhase2Suite() },
+      ];
+
+      const total = suites.reduce((acc, s) => acc + s.report.total, 0);
+      const passed = suites.reduce((acc, s) => acc + s.report.passed, 0);
+      const failed = suites.reduce((acc, s) => acc + s.report.failed, 0);
+
+      summaryEl.className = failed === 0 ? "summary pass" : "summary fail";
+      summaryEl.textContent =
+        failed === 0
+          ? `ALL PASSED: ${passed} / ${total} automated checks passed`
+          : `FAILED: ${failed} failed, ${passed} / ${total} passed`;
+
+      for (const s of suites) {
+        const h2 = document.createElement("h2");
+        h2.textContent = `${s.label} (${s.report.passed}/${s.report.total})`;
+        sectionsEl.appendChild(h2);
+
+        const ul = document.createElement("ul");
+        for (const r of s.report.results) {
+          const li = document.createElement("li");
+          li.className = r.ok ? "pass" : "fail";
+          li.textContent = `${r.ok ? "PASS" : "FAIL"} (${r.durationMs.toFixed(1)} ms) — ${r.name}`;
+          if (r.error) {
+            const pre = document.createElement("pre");
+            pre.textContent = r.error;
+            li.appendChild(pre);
+          }
+          ul.appendChild(li);
+        }
+        sectionsEl.appendChild(ul);
+      }
+    </script>
+  </body>
+</html>
