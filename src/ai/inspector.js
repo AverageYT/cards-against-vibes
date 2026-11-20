@@ -355,6 +355,74 @@ function decideOfferAction(view, aiRng, memory, cfg) {
     return { action, trace };
   };
 
+  // Tier 3–5 legal Inspector Stamp plays during OFFER_PHASE (never touches hidden player info).
+  if (cfg.tier >= 3 && view.iHoldUnlisted && Array.isArray(view.legal.stampStatuses)) {
+    const ntStatus = view.legal.stampStatuses.find(
+      (s) => s.id === "NIGHT_TRANSFER" && s.canUse
+    );
+    if (ntStatus && !view.legal.canSwap && !(pending && pending.offerId === view.offerId)) {
+      return {
+        action: {
+          type: ACTION_TYPES.USE_STAMP,
+          actor,
+          stampId: "NIGHT_TRANSFER",
+          seq,
+        },
+        trace: {
+          tier: cfg.tier,
+          tierName: cfg.name,
+          turnNumber: view.turnNumber,
+          offerId: view.offerId,
+          phase: view.phase,
+          role: "OFFERER",
+          actionType: ACTION_TYPES.USE_STAMP,
+          reason: "Stamped Night Transfer to restore forfeited swap while holding The Unlisted.",
+          rngRoll: null,
+          observedFacts: baseFacts,
+          candidates: [],
+        },
+      };
+    }
+
+    const bwStatus = view.legal.stampStatuses.find(
+      (s) => s.id === "BRASS_WEIGHT" && s.canUse
+    );
+    if (bwStatus && n === 3 && bwStatus.validTargets.length > 0) {
+      // Lock the ordinary ticket sitting in the player's least-favored draw bucket to compress safe outs.
+      let lockSlot = bwStatus.validTargets[0];
+      let lowestProb = Infinity;
+      for (const s of bwStatus.validTargets) {
+        const p = drawProbs[slotToBucket(s, n)] ?? 0.2;
+        if (p < lowestProb) {
+          lowestProb = p;
+          lockSlot = s;
+        }
+      }
+      return {
+        action: {
+          type: ACTION_TYPES.USE_STAMP,
+          actor,
+          stampId: "BRASS_WEIGHT",
+          targetSlot: lockSlot,
+          seq,
+        },
+        trace: {
+          tier: cfg.tier,
+          tierName: cfg.name,
+          turnNumber: view.turnNumber,
+          offerId: view.offerId,
+          phase: view.phase,
+          role: "OFFERER",
+          actionType: ACTION_TYPES.USE_STAMP,
+          reason: `Placed Brass Weight on ordinary slot #${lockSlot + 1} to narrow safe draws (exposes right slot next offer).`,
+          rngRoll: null,
+          observedFacts: baseFacts,
+          candidates: [],
+        },
+      };
+    }
+  }
+
   // Already completed planned swap, or no swap permitted/possible -> commit immediately.
   if (
     !view.legal.canSwap ||
@@ -753,6 +821,172 @@ function decideDrawAction(view, aiRng, memory, cfg) {
             prob: round3(c.prob),
             note: c.note,
           })),
+        },
+      };
+    }
+  }
+
+  // Tiers 2–5: Honor Inspector's own private Manifest Loupe clues from this offer (strictly legal).
+  if (cfg.usesReveals && Array.isArray(view.myLoupeClues) && view.myLoupeClues.length > 0) {
+    const knownUnlistedSet = new Set(
+      validReveals.filter((r) => r.isUnlisted).map((r) => r.slotIndex)
+    );
+    const loupeSafeSet = new Set();
+    for (const clue of view.myLoupeClues) {
+      if (!clue.hasUnlisted) {
+        loupeSafeSet.add(clue.slotA);
+        loupeSafeSet.add(clue.slotB);
+      } else {
+        for (const s of legalSlots) {
+          if (s !== clue.slotA && s !== clue.slotB) loupeSafeSet.add(s);
+        }
+      }
+    }
+    const deducedSafe = legalSlots.filter(
+      (s) => loupeSafeSet.has(s) && !knownUnlistedSet.has(s)
+    );
+    if (deducedSafe.length > 0) {
+      const cands = deducedSafe.map((s) => ({ slotIndex: s, weight: 1, note: "loupe-safe" }));
+      const { picked, roll, scored } = sampleWeighted(cands, aiRng, 0);
+      return {
+        action: { type: ACTION_TYPES.DRAW, actor, slotIndex: picked.slotIndex, seq },
+        trace: {
+          tier: cfg.tier,
+          tierName: cfg.name,
+          turnNumber: view.turnNumber,
+          offerId: view.offerId,
+          phase: view.phase,
+          role: "DRAWER",
+          actionType: ACTION_TYPES.DRAW,
+          chosenSlot: picked.slotIndex + 1,
+          reason: `Drew slot #${picked.slotIndex + 1} confirmed safe by Manifest Loupe.`,
+          rngRoll: scored.length > 1 ? round3(roll) : null,
+          observedFacts,
+          candidates: scored.map((c) => ({
+            slot: c.slotIndex + 1,
+            prob: round3(c.prob),
+            note: c.note,
+          })),
+        },
+      };
+    }
+  }
+
+  // Tiers 3–5: Legally activate Inspector's equipped Draw Stamps (Inspection Window / Manifest Loupe)
+  // when facing Unlisted danger with no guaranteed-safe slot yet.
+  const alreadyKnowsUnlisted = validReveals.some((r) => r.isUnlisted);
+  if (
+    cfg.tier >= 3 &&
+    view.opponentHoldsUnlisted &&
+    !view.finalCall?.active &&
+    !alreadyKnowsUnlisted &&
+    Array.isArray(view.legal.stampStatuses) &&
+    view.legal.stampStatuses.length > 0
+  ) {
+    const hasFreshCarbon =
+      Array.isArray(view.myStamps) &&
+      view.myStamps.some((s) => s.id === "CARBON_COPY" && !s.spent);
+    const holdsCarbonPair = view.myHand.some(
+      (s) => s.ticket.symbolId === "LANTERN" || s.ticket.symbolId === "WATCH"
+    );
+
+    const bcStatus = view.legal.stampStatuses.find(
+      (s) => s.id === "BELL_CORD" && s.canUse
+    );
+    if (bcStatus && legalSlots.length <= 4) {
+      return {
+        action: {
+          type: ACTION_TYPES.USE_STAMP,
+          actor,
+          stampId: "BELL_CORD",
+          seq,
+        },
+        trace: {
+          tier: cfg.tier,
+          tierName: cfg.name,
+          turnNumber: view.turnNumber,
+          offerId: view.offerId,
+          phase: view.phase,
+          role: "DRAWER",
+          actionType: ACTION_TYPES.USE_STAMP,
+          reason: "Pulled Bell Cord to expose a matching ★ Emblem ticket for a safe clear.",
+          rngRoll: null,
+          observedFacts,
+          candidates: [],
+        },
+      };
+    }
+
+    const iwStatus = view.legal.stampStatuses.find(
+      (s) => s.id === "INSPECTION_WINDOW" && s.canUse
+    );
+    if (
+      iwStatus &&
+      iwStatus.validTargets.length > 0 &&
+      (legalSlots.length <= 3 || (hasFreshCarbon && holdsCarbonPair && legalSlots.length <= 5))
+    ) {
+      const targetCands = iwStatus.validTargets.map((s) => ({
+        slotIndex: s,
+        weight: 0.6 + (hideProbs[slotToBucket(s, oppCount)] ?? 0.2),
+        note: "window-peek",
+      }));
+      const { picked, roll } = sampleWeighted(targetCands, aiRng, 0);
+      return {
+        action: {
+          type: ACTION_TYPES.USE_STAMP,
+          actor,
+          stampId: "INSPECTION_WINDOW",
+          targetSlot: picked.slotIndex,
+          seq,
+        },
+        trace: {
+          tier: cfg.tier,
+          tierName: cfg.name,
+          turnNumber: view.turnNumber,
+          offerId: view.offerId,
+          phase: view.phase,
+          role: "DRAWER",
+          actionType: ACTION_TYPES.USE_STAMP,
+          chosenSlot: picked.slotIndex + 1,
+          reason: `Opened Inspection Window on slot #${picked.slotIndex + 1} before drawing (forfeits next swap).`,
+          rngRoll: round3(roll),
+          observedFacts,
+          candidates: [],
+        },
+      };
+    }
+
+    const mlStatus = view.legal.stampStatuses.find(
+      (s) => s.id === "MANIFEST_LOUPE" && s.canUse
+    );
+    if (mlStatus && mlStatus.validTargets.length > 0 && legalSlots.length === 3) {
+      const targetCands = mlStatus.validTargets.map((s) => ({
+        slotIndex: s,
+        weight: 1,
+        note: "loupe-sweep",
+      }));
+      const { picked, roll } = sampleWeighted(targetCands, aiRng, 0);
+      return {
+        action: {
+          type: ACTION_TYPES.USE_STAMP,
+          actor,
+          stampId: "MANIFEST_LOUPE",
+          targetSlot: picked.slotIndex,
+          seq,
+        },
+        trace: {
+          tier: cfg.tier,
+          tierName: cfg.name,
+          turnNumber: view.turnNumber,
+          offerId: view.offerId,
+          phase: view.phase,
+          role: "DRAWER",
+          actionType: ACTION_TYPES.USE_STAMP,
+          chosenSlot: picked.slotIndex + 1,
+          reason: `Swept adjacent slots starting at #${picked.slotIndex + 1} with Manifest Loupe (exposes left slot next offer).`,
+          rngRoll: round3(roll),
+          observedFacts,
+          candidates: [],
         },
       };
     }

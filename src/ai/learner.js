@@ -554,10 +554,18 @@ export function createInspectorMemory(customTuning = {}, initialSnapshot = null)
 export function extractOfferPublicContext(publicHistory, upToIdx, offererSide) {
   let turnStartEv = null;
   let prevDrawEv = null;
+  let nightTransferUsed = false;
 
   for (let j = upToIdx - 1; j >= 0; j -= 1) {
     const e = publicHistory[j];
-    if (!turnStartEv && e.type === "TURN_STARTED" && e.offerer === offererSide) {
+    if (
+      !turnStartEv &&
+      e.type === "STAMP_USED" &&
+      e.actor === offererSide &&
+      e.grantedSwap
+    ) {
+      nightTransferUsed = true;
+    } else if (!turnStartEv && e.type === "TURN_STARTED" && e.offerer === offererSide) {
       turnStartEv = e;
     } else if (e.type === "TICKET_DRAWN") {
       prevDrawEv = e;
@@ -571,7 +579,9 @@ export function extractOfferPublicContext(publicHistory, upToIdx, offererSide) {
   const opponentJustDrewUnlisted = Boolean(
     prevDrawEv && prevDrawEv.drawer === offererSide && prevDrawEv.drewUnlisted
   );
-  const opponentSwapForfeited = Boolean(turnStartEv && turnStartEv.offererSwapForfeited);
+  const opponentSwapForfeited = Boolean(
+    turnStartEv && turnStartEv.offererSwapForfeited && !nightTransferUsed
+  );
 
   return {
     opponentHeldUnlisted,

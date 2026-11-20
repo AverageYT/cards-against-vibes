@@ -19,6 +19,7 @@ import {
   otherSide,
 } from "./engine.js";
 import { UNLISTED_TICKET } from "../data/tickets.js";
+import { describeConditionLiveStatus } from "../data/conditions.js";
 
 function sanitizePublicEvent(ev) {
   if (ev.privateTo) {
@@ -201,14 +202,73 @@ export function createObserverView(state, viewerSide) {
         }
       : null,
     condition: state.condition ? { ...state.condition } : null,
+    conditionLive: describeConditionLiveStatus(state.condition, {
+      turnNumber: state.turnNumber,
+      playedPairsDiscarded: state.playedPairsDiscarded,
+      duelOver: state.phase === PHASES.OVER,
+    }),
     myStamps: state.stamps[viewerSide].map((s) => ({ ...s })),
     opponentStamps: state.stamps[opponentSide].map((s) => ({
       id: s.id,
       spent: Boolean(s.spent),
+      tokenReady: Boolean(s.tokenReady),
     })),
+    myConsumedStamps: state.consumedStamps[viewerSide].slice(),
+    myLanterns: state.lanterns[viewerSide],
+    maxLanterns: state.maxLanterns,
+    myLoupeClues: (state.privateLoupeClues[viewerSide] || []).map((c) => ({ ...c })),
+    myEdgeClues: (state.privateEdgeClues[viewerSide] || []).map((c) => ({ ...c })),
+    myGaugeSafeSlots: (state.privateGaugeSafeSlots[viewerSide] || []).map((c) => ({ ...c })),
     myForfeitNextSwap: Boolean(state.forfeitNextSwap[viewerSide]),
+    myPendingExposure: {
+      left: Boolean(state.pendingPublicExposure[viewerSide].left),
+      right: Boolean(state.pendingPublicExposure[viewerSide].right),
+      nextOfferRight: Boolean(state.pendingPublicExposure[viewerSide].nextOfferRight),
+    },
+    // Publicly known tradeoffs incurred by the opponent from visible Stamp plays:
+    opponentForfeitNextSwap: Boolean(state.forfeitNextSwap[opponentSide]),
+    opponentPendingExposure: {
+      left: Boolean(state.pendingPublicExposure[opponentSide].left),
+      right: Boolean(
+        state.pendingPublicExposure[opponentSide].right ||
+          state.pendingPublicExposure[opponentSide].nextOfferRight
+      ),
+    },
+    opponentLastStampEvent: (() => {
+      for (let i = state.eventLog.length - 1; i >= 0; i -= 1) {
+        const e = state.eventLog[i];
+        if (e.type === "TICKET_DRAWN") break;
+        if (e.type === "STAMP_USED" && e.actor === opponentSide && e.offerId === state.offerId) {
+          return {
+            stampId: e.stampId,
+            lockedSlot: e.lockedSlot ?? null,
+            forfeitsNextSwap: Boolean(e.forfeitsNextSwap),
+            queuesLeftExposure: Boolean(e.queuesLeftExposure),
+            queuesRightExposure: Boolean(e.queuesRightExposure),
+          };
+        }
+      }
+      return null;
+    })(),
+    lastStopPunchArmed:
+      state.phase === PHASES.DRAW && state.drawer === viewerSide
+        ? Boolean(state.lastStopPunchArmed)
+        : false,
+    myStampFeedback:
+      state.lastStampFeedback && state.lastStampFeedback.actor === viewerSide
+        ? state.lastStampFeedback.message
+        : null,
     legal: getLegalActions(state, viewerSide),
-    lastResolution,
+    lastResolution: lastResolution
+      ? {
+          ...lastResolution,
+          stampTriggerNotes:
+            state.lastResolution.drawer === viewerSide &&
+            Array.isArray(state.lastResolution.stampTriggerNotes)
+              ? state.lastResolution.stampTriggerNotes.slice()
+              : [],
+        }
+      : null,
     publicHistory,
     winner: state.winner,
     loser: state.loser,

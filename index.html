@@ -6,88 +6,248 @@
     <title>The Unlisted — Midnight Carriage Card Game</title>
     <meta
       name="description"
-      content="Pair off the manifest tickets across a midnight carriage table and leave the Inspector holding The Unlisted."
+      content="Cross four midnight railway carriages and survive the Final Inspection: pair off every ticket, unlock contraband Keepsakes, and never be left holding The Unlisted."
     />
     <link rel="stylesheet" href="./styles/main.css" />
   </head>
   <body>
     <div id="app" class="app-shell">
+      <!-- Persistent Top Bar -->
       <header class="topbar" role="banner">
         <div class="brand-block">
           <h1 class="game-title">THE UNLISTED</h1>
-          <p class="game-subtitle" id="encounter-subtitle">Midnight Line · Carriage Duel</p>
+          <p class="game-subtitle" id="encounter-subtitle">Midnight Line · Ticket Duel</p>
         </div>
 
-        <form id="duel-controls" class="controls-bar" aria-label="Duel settings">
-          <label class="control-field" for="seed-input">
-            <span class="field-label">Seed</span>
-            <input
-              id="seed-input"
-              name="seed"
-              type="text"
-              maxlength="48"
-              autocomplete="off"
-              spellcheck="false"
-              value="LINE-1926"
-            />
-          </label>
+        <div class="run-hud hidden" id="run-hud" aria-label="Run progress, match score, and lanterns">
+          <ol class="route-track" id="route-track" aria-label="Five-stop carriage route"></ol>
+          <div class="match-score-pill hidden" id="match-score-pill" aria-label="Carriage deal score"></div>
+          <div class="lantern-meter" id="lantern-meter" aria-label="Lantern charges"></div>
+        </div>
 
-          <label class="control-field" for="pairs-select">
-            <span class="field-label">Pairs</span>
-            <select id="pairs-select" name="pairs">
-              <option value="6" selected>6 (13)</option>
-              <option value="7">7 (15)</option>
-              <option value="8">8 (17)</option>
-              <option value="9">9 (19)</option>
-              <option value="10">10 (21)</option>
-              <option value="11">11 (23)</option>
-              <option value="12">12 (25)</option>
-            </select>
-          </label>
-
-          <label class="control-field" for="tier-select">
-            <span class="field-label">Inspector</span>
-            <select id="tier-select" name="tier">
-              <option value="RAMP" selected>Ramp T1→T5</option>
-              <option value="1">Tier 1 · Novice</option>
-              <option value="2">Tier 2 · Examiner</option>
-              <option value="3">Tier 3 · Dining Car</option>
-              <option value="4">Tier 4 · Sleeper</option>
-              <option value="5">Tier 5 · Chief</option>
-            </select>
-          </label>
-
-          <label class="control-field" for="starter-select">
-            <span class="field-label">Starter</span>
-            <select id="starter-select" name="starter">
-              <option value="ALTERNATE" selected>Alternate</option>
-              <option value="PLAYER_DRAWS_FIRST">You Draw 1st</option>
-              <option value="PLAYER_OFFERS_FIRST">You Offer 1st</option>
-            </select>
-          </label>
-
-          <div class="control-buttons">
-            <button type="submit" class="btn btn-brass" id="apply-seed-btn">New Run</button>
-            <button type="button" class="btn btn-subtle" id="new-seed-btn">New Seed</button>
-            <button type="button" class="btn btn-subtle" id="restart-btn" title="Replay current duel">
-              Replay
-            </button>
-          </div>
-
+        <div class="topbar-actions">
+          <span class="stubs-chip" id="stubs-chip" title="Punched Stubs saved in your Platform Locker">
+            ◈ 0 Stubs
+          </span>
+          <span class="seed-chip" id="seed-chip" title="Active run seed">Seed: LINE-1926</span>
+          <button type="button" class="btn btn-subtle btn-sm" id="nav-locker-btn">
+            Locker
+          </button>
+          <button type="button" class="btn btn-subtle btn-sm" id="nav-tutorial-btn">
+            Tutorial
+          </button>
+          <button type="button" class="btn btn-subtle btn-sm hidden" id="nav-restart-btn">
+            Restart Run
+          </button>
+          <button type="button" class="btn btn-subtle btn-sm hidden" id="nav-title-btn">
+            Title
+          </button>
           <label class="toggle-field" for="reduced-motion-toggle">
             <input id="reduced-motion-toggle" type="checkbox" />
             <span>Reduced motion</span>
           </label>
-        </form>
+        </div>
       </header>
 
-      <main class="carriage-table" id="carriage-table" aria-label="Carriage card table">
+      <!-- 1. TITLE SCREEN -->
+      <main id="title-screen" class="screen-panel title-screen" aria-labelledby="title-heading">
+        <div class="title-card">
+          <p class="screen-kicker">MIDNIGHT LINE · PASSENGER MANIFEST</p>
+          <h2 id="title-heading" class="title-display">THE UNLISTED</h2>
+          <p class="title-tagline">
+            An armed Ticket Inspector waits across a scratched carriage table. Match every pair of
+            tickets across multi-deal stops, punish the Inspector's Stamp tradeoffs, and spend
+            <strong>Punched Stubs</strong> in the Platform Locker to survive the line — never be left
+            holding <strong>The Unlisted</strong>.
+          </p>
+
+          <div class="title-cta-row">
+            <button type="button" class="btn btn-brass btn-lg" id="title-primary-btn">
+              Play Interactive Tutorial (2 min)
+            </button>
+            <button type="button" class="btn btn-subtle btn-lg" id="title-secondary-btn">
+              Start Run (Skip Tutorial)
+            </button>
+            <button type="button" class="btn btn-locker btn-lg" id="title-locker-btn">
+              Platform Locker · ◈ 0 Stubs
+            </button>
+          </div>
+
+          <div class="title-loadout-bar" id="title-loadout-bar" aria-label="Active Locker Keepsakes"></div>
+
+          <form id="seed-form" class="seed-box" aria-label="Repeatable run seed">
+            <label class="seed-label" for="seed-input">
+              Run Seed <span class="seed-sub">(optional — share or replay the exact same train)</span>
+            </label>
+            <div class="seed-input-row">
+              <input
+                id="seed-input"
+                name="seed"
+                type="text"
+                maxlength="48"
+                autocomplete="off"
+                spellcheck="false"
+                value="LINE-1926"
+              />
+              <button type="button" class="btn btn-subtle" id="random-seed-btn">
+                Random Seed
+              </button>
+              <button type="submit" class="btn btn-subtle" id="start-seeded-btn">
+                Run This Seed
+              </button>
+            </div>
+          </form>
+
+          <ul class="title-pillars" aria-label="Run overview">
+            <li>
+              <strong>5 Multi-Deal Stops</strong>
+              <span>4 Carriages (First to 2 deals, 7→10 pairs) + Final Inspection (First to 3, 12 pairs).</span>
+            </li>
+            <li>
+              <strong>Armed Inspector</strong>
+              <span>He learns your habits and uses legal Stamps — watch &amp; punish his tradeoffs.</span>
+            </li>
+            <li>
+              <strong>Platform Locker</strong>
+              <span>Every run earns ◈ Stubs toward Keepsakes &amp; ★ The Perforation Gauge.</span>
+            </li>
+          </ul>
+        </div>
+      </main>
+
+      <!-- 1B. PLATFORM LOCKER (META-PROGRESSION) SCREEN -->
+      <main
+        id="locker-screen"
+        class="screen-panel locker-screen hidden"
+        aria-labelledby="locker-title"
+      >
+        <div class="locker-shell">
+          <div class="locker-header">
+            <div>
+              <p class="screen-kicker">TERMINUS UNDERPASS · BETWEEN RUNS</p>
+              <h2 id="locker-title" class="screen-title">Platform Locker</h2>
+              <p class="locker-sub">
+                The Inspector begins every run experienced and well-stamped. Even failed runs leave
+                <strong>◈ Punched Stubs</strong> in your coat — unlock contraband Keepsakes below,
+                led by <strong>★ The Perforation Gauge</strong>, to break his grip on the line.
+                Unlocked items can be toggled on or off anytime.
+              </p>
+            </div>
+            <div class="locker-wallet" id="locker-wallet" aria-label="Punched Stubs and career record"></div>
+          </div>
+
+          <p class="locker-notice hidden" id="locker-notice" role="status" aria-live="polite"></p>
+
+          <div class="locker-grid" id="locker-grid" role="group" aria-label="Platform Locker Keepsakes"></div>
+
+          <div class="locker-footer">
+            <div class="locker-footer-left">
+              <button type="button" class="btn btn-subtle" id="locker-back-btn">
+                ← Back
+              </button>
+              <button type="button" class="btn btn-brass btn-lg" id="locker-start-run-btn">
+                Board Next Train →
+              </button>
+            </div>
+            <button type="button" class="btn btn-danger-subtle btn-sm" id="locker-reset-btn">
+              Reset Locker Progress
+            </button>
+          </div>
+        </div>
+      </main>
+
+      <!-- 2. CARRIAGE BRIEFING SCREEN -->
+      <main
+        id="briefing-screen"
+        class="screen-panel briefing-screen hidden"
+        aria-labelledby="briefing-title"
+      >
+        <div class="briefing-card">
+          <p class="screen-kicker" id="briefing-kicker">STOP 1 OF 5 · CAR I</p>
+          <h2 id="briefing-title" class="screen-title">Third-Class Coach</h2>
+          <p class="briefing-station" id="briefing-station">Station: Alder Halt (Unlit)</p>
+          <p class="briefing-desc" id="briefing-desc"></p>
+
+          <div class="briefing-facts" id="briefing-facts"></div>
+
+          <section
+            class="inspector-brief-box"
+            id="briefing-inspector-box"
+            aria-label="Inspector Stamp Kit"
+          >
+            <div class="section-mini-header">
+              <span>Inspector's Stamp Kit (refreshed each deal)</span>
+              <span class="inspector-brief-note" id="briefing-inspector-note"></span>
+            </div>
+            <div class="briefing-inspector-stamps" id="briefing-inspector-stamps"></div>
+          </section>
+
+          <section class="condition-brief-box" id="briefing-condition-box" aria-label="Carriage Condition">
+            <div class="condition-brief-header">
+              <span class="condition-brief-tag">CARRIAGE CONDITION</span>
+              <span class="condition-expiry-pill" id="briefing-condition-expiry"></span>
+            </div>
+            <h3 class="condition-brief-name" id="briefing-condition-name">Clear Line</h3>
+            <p class="condition-brief-rule" id="briefing-condition-rule"></p>
+          </section>
+
+          <section class="briefing-stamps" aria-label="Your equipped Stamps and Passenger Tools">
+            <div class="section-mini-header">
+              <span>Your Stamp Tray &amp; Locker Tools (refreshed each deal)</span>
+              <span id="briefing-stamp-count">0 / 3 slots</span>
+            </div>
+            <div class="briefing-tools-row hidden" id="briefing-tools-row"></div>
+            <div class="briefing-stamp-list" id="briefing-stamp-list"></div>
+          </section>
+
+          <div class="screen-actions">
+            <button type="button" class="btn btn-brass btn-lg" id="begin-duel-btn">
+              Take Your Seat — Deal 1
+            </button>
+          </div>
+        </div>
+      </main>
+
+      <!-- 3. CARRIAGE TABLE SCREEN (DUEL + INTERACTIVE TUTORIAL) -->
+      <main
+        class="carriage-table hidden"
+        id="table-screen"
+        aria-label="Carriage card table"
+      >
+        <!-- Interactive Tutorial Guide Banner (shown only in TUTORIAL) -->
+        <section
+          id="tutorial-banner"
+          class="tutorial-banner hidden"
+          role="region"
+          aria-live="polite"
+          aria-label="Interactive tutorial guide"
+        >
+          <div class="tutorial-top">
+            <span class="tutorial-step-pill" id="tutorial-step-pill">TUTORIAL · STEP 1 OF 8</span>
+            <button type="button" class="btn btn-subtle btn-sm" id="skip-tutorial-btn">
+              Skip Tutorial →
+            </button>
+          </div>
+          <h2 class="tutorial-title" id="tutorial-title"></h2>
+          <p class="tutorial-body" id="tutorial-body"></p>
+          <ul class="tutorial-summary-list hidden" id="tutorial-summary-list"></ul>
+          <p class="tutorial-nudge hidden" id="tutorial-nudge"></p>
+          <div class="tutorial-actions hidden" id="tutorial-actions">
+            <button type="button" class="btn btn-brass" id="tutorial-next-btn">
+              Continue →
+            </button>
+          </div>
+        </section>
+
+        <!-- Live Carriage Condition & Pending Tradeoff Strip -->
+        <div id="condition-strip" class="condition-strip hidden" aria-live="polite"></div>
+
         <!-- Inspector Side (Across the Table) -->
         <section class="seat seat-inspector" aria-labelledby="inspector-heading">
           <div class="seat-header">
             <div class="seat-title-group">
               <h2 id="inspector-heading" class="seat-name">Ticket Inspector</h2>
-              <span class="tier-badge" id="inspector-tier-badge">T1 · Novice Collector</span>
+              <span class="tier-badge" id="inspector-tier-badge">T3 · Corridor Inspector</span>
               <span class="role-badge" id="inspector-role-badge">OFFERER</span>
             </div>
             <div class="seat-meta">
@@ -95,6 +255,12 @@
               <span class="risk-note" id="inspector-risk-note"></span>
             </div>
           </div>
+
+          <div
+            class="inspector-stamps-bar hidden"
+            id="inspector-stamps-bar"
+            aria-label="Inspector Stamps this deal"
+          ></div>
 
           <div
             class="ticket-fan inspector-fan"
@@ -112,7 +278,11 @@
               <p class="phase-prompt" id="phase-prompt">Preparing manifest…</p>
             </div>
 
-            <div class="streak-box" id="streak-box" aria-label="Final Call Unlisted transfer streak">
+            <div
+              class="streak-box"
+              id="streak-box"
+              aria-label="Final Call Unlisted transfer streak"
+            >
               <span class="streak-label">Unlisted Streak</span>
               <div class="streak-pips" id="streak-pips"></div>
               <span class="streak-caption" id="streak-caption">0 / 3 to Final Call</span>
@@ -121,27 +291,10 @@
 
           <div class="spotlight-tray" id="spotlight-tray"></div>
 
-          <div class="result-panel hidden" id="result-panel" role="region" aria-label="Duel outcome">
-            <p class="result-kicker" id="result-kicker">END OF STOP</p>
-            <h2 class="result-title" id="result-title">Manifest Cleared</h2>
-            <p class="result-body" id="result-body"></p>
-            <div class="result-actions">
-              <button type="button" class="btn btn-brass" id="next-duel-btn">
-                Next Carriage (Keep Run &amp; Habits)
-              </button>
-              <button type="button" class="btn btn-subtle" id="replay-duel-btn">
-                Replay Stop
-              </button>
-              <button type="button" class="btn btn-subtle" id="reset-run-btn">
-                Fresh Run (Reset AI)
-              </button>
-            </div>
-          </div>
-
           <details class="manifest-drawer" id="manifest-drawer">
             <summary class="manifest-summary">
-              <span>Manifest Ledger (click to inspect cleared pairs)</span>
-              <span id="manifest-count">0 / 6 pairs cleared</span>
+              <span>Manifest Ledger (matched &amp; cleared pairs)</span>
+              <span id="manifest-count">0 / 7 pairs cleared</span>
             </summary>
             <div class="manifest-list" id="manifest-list"></div>
           </details>
@@ -170,9 +323,28 @@
             aria-label="Your ticket hand"
           ></div>
 
+          <!-- Passenger Locker Tools (Perforation Gauge & Check Edge) -->
+          <div
+            class="tools-bar hidden"
+            id="tools-bar"
+            role="group"
+            aria-label="Locker Keepsake Tools"
+          ></div>
+
+          <!-- 3-Slot Stamp Tray -->
+          <div class="stamp-tray-wrap" aria-label="Your Stamp Tray">
+            <div class="stamp-tray-header">
+              <span class="stamp-tray-title">Stamp Tray</span>
+              <span class="stamp-tray-hint" id="stamp-tray-hint">
+                Emblem tickets (★ EMB) trigger Carbon Copy &amp; Bell Cord.
+              </span>
+            </div>
+            <div class="stamp-tray" id="stamp-tray" role="group" aria-label="Equipped Stamps"></div>
+          </div>
+
           <div class="table-footer">
             <p class="kbd-hint" id="kbd-hint">
-              Arrows + Enter to pick/swap · Press C to commit fan.
+              Arrows + Enter · C commit · 1–3 Stamps · G Gauge · E Edge · Esc cancel.
             </p>
             <button
               type="button"
@@ -186,6 +358,104 @@
             </button>
           </div>
         </section>
+      </main>
+
+      <!-- 4. DEAL / CARRIAGE OUTCOME SCREEN -->
+      <main
+        id="stop-result-screen"
+        class="screen-panel stop-result-screen hidden"
+        aria-labelledby="stop-result-title"
+      >
+        <div class="result-card" id="stop-result-card">
+          <p class="screen-kicker" id="stop-result-kicker">CARRIAGE CLEARED</p>
+          <h2 id="stop-result-title" class="screen-title">The Inspector Holds The Unlisted</h2>
+          <div class="result-score-banner hidden" id="stop-result-score"></div>
+          <p class="result-body" id="stop-result-body"></p>
+          <div class="result-lantern-row" id="stop-result-lanterns"></div>
+          <div class="screen-actions">
+            <button type="button" class="btn btn-brass btn-lg" id="stop-continue-btn">
+              Choose a Stamp Reward →
+            </button>
+          </div>
+        </div>
+      </main>
+
+      <!-- 5. STAMP REWARD / DEPARTURE DRAFT SCREEN -->
+      <main
+        id="reward-screen"
+        class="screen-panel reward-screen hidden"
+        aria-labelledby="reward-title"
+      >
+        <div class="reward-shell">
+          <div class="reward-header">
+            <p class="screen-kicker" id="reward-kicker">CARRIAGE VICTORY · STAMP REWARD</p>
+            <h2 id="reward-title" class="screen-title">Choose 1 Stamp (or Skip)</h2>
+            <p class="reward-sub" id="reward-sub">
+              Every Stamp grants an edge with a tradeoff. You can carry up to 3 Stamps at once.
+            </p>
+          </div>
+
+          <section class="reward-current-box" id="reward-current-box" aria-label="Current Stamp slots">
+            <div class="section-mini-header">
+              <span id="reward-slots-label">Current Stamp Tray</span>
+              <button type="button" class="btn btn-subtle btn-sm hidden" id="cancel-replace-btn">
+                Cancel Replacement
+              </button>
+            </div>
+            <div class="reward-current-slots" id="reward-current-slots"></div>
+          </section>
+
+          <div class="reward-grid" id="reward-grid" role="group" aria-label="Stamp reward choices"></div>
+
+          <div class="screen-actions screen-actions-wrap">
+            <button type="button" class="btn btn-locker hidden" id="reroll-reward-btn">
+              ⎘ Reroll Stamps (1 left)
+            </button>
+            <button type="button" class="btn btn-subtle" id="skip-reward-btn">
+              Skip Reward — Advance to Next Carriage →
+            </button>
+          </div>
+        </div>
+      </main>
+
+      <!-- 6. RUN OVER SCREEN (VICTORY / DEFEAT + PUNCHED STUB PAYOUT) -->
+      <main
+        id="run-over-screen"
+        class="screen-panel run-over-screen hidden"
+        aria-labelledby="run-over-title"
+      >
+        <div class="result-card run-over-card" id="run-over-card">
+          <p class="screen-kicker" id="run-over-kicker">END OF THE LINE</p>
+          <h2 id="run-over-title" class="title-display">MANIFEST CLEARED</h2>
+          <p class="result-body" id="run-over-body"></p>
+
+          <section
+            class="payout-receipt hidden"
+            id="run-payout-box"
+            aria-label="Punched Stubs earned this run"
+          ></section>
+
+          <div class="run-summary-grid" id="run-summary-grid"></div>
+          <ol class="run-history-list" id="run-history-list" aria-label="Stop-by-stop log"></ol>
+
+          <div class="screen-actions screen-actions-wrap">
+            <button type="button" class="btn btn-locker btn-lg" id="run-over-locker-btn">
+              Open Platform Locker →
+            </button>
+            <button type="button" class="btn btn-brass btn-lg" id="fresh-run-btn">
+              New Run (Random Seed)
+            </button>
+            <button type="button" class="btn btn-subtle" id="replay-seed-btn">
+              Replay Same Seed
+            </button>
+            <button type="button" class="btn btn-subtle" id="run-over-tutorial-btn">
+              Tutorial
+            </button>
+            <button type="button" class="btn btn-subtle" id="run-over-title-btn">
+              Title Screen
+            </button>
+          </div>
+        </div>
       </main>
 
       <!-- Developer-Only AI Decision Trace (Hidden in Normal Play) -->
