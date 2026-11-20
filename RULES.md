@@ -138,6 +138,40 @@ A full run consists of **5 multi-deal stops** (4 Carriages + Final Inspection, ~
 
 ---
 
+### 7a. Presentation Layer (Art, Motion & Audio)
+
+The rules are unchanged by presentation. Everything below is purely visual or
+audible feedback and can be switched off without altering a single legal action.
+
+- **Procedural 2.5D carriage**: a low-poly flat-shaded interior (442 triangles:
+  compartment, scratched fold-down table, brass trim, swinging overhead lamp,
+  window with rain, opposite bench, leather straps, foreground seat) rendered at
+  320x180 and upscaled. No binary art assets.
+- **Inspector sprite**: a 2D pixel-art hooded figure composed procedurally on the
+  1 px grid (72x56), billboarded across the table with 1 px breathing, head tilt
+  and hand lift, plus a 10 % mirrored window reflection.
+- **PS1 post pass**: WebGL fragment shader (nearest sampling, ordered Bayer 4x4
+  dithering, 5-bit channel banding, scanlines, vignette) with an automatic Canvas
+  2D software-shader fallback. The UI/ticket/SVG layer never enters the shader.
+- **Pixelation toggle** (`P`): switches between 320x180 nearest upscale and a
+  640x360 smoothed composite.
+- **Tickets**: inline SVG data URIs — perforated aged stock, 12 railway emblems,
+  a brass corner tab for Emblem pairs, and the damp blank Unlisted ticket with its
+  black punch hole.
+- **Motion**: lift, settle, draw-arrive, pair snap, 460 ms commit suspense, punch,
+  stamp, lantern loss, reward reveal. Every effect returns to its rest value.
+- **Reduced motion**: all durations <= 120 ms, sway/shake/rain drift/dust/grain
+  disabled, hover lift and selection tilt removed.
+- **Audio** (`M`): synthesized draw, flip, match, punch, stamp, lantern loss,
+  reward, UI and deny cues plus a train ambience bed, on separate sfx and ambience
+  buses under one master gain. Mute is instant and total; volume 0-100 %. Both
+  persist in `the_unlisted_audio_v1`. Audio only starts after a user gesture.
+- **Accessibility**: every gameplay state keeps a text and shape indicator
+  (dashed vs solid lock borders, Emblem corner notch, "Exposed"/"Peeked"/"Gauge:
+  Safe"/"Final Call" chips); all controls are native focusable elements.
+
+---
+
 ## 8. Stamps (Player Modifiers)
 
 The player holds up to **3 Stamp slots**. Per-carriage Stamp charges refresh at the start of every duel (including Final Inspection rematches). Stamps #1–6 are **MUST SHIP**; #7–8 are **SHOULD SHIP**.

@@ -6,6 +6,7 @@
 
 import { createRunController } from "./core/run.js";
 import { mountAppView } from "./ui/appView.js";
+import { mountPresentation } from "./ui/presentation.js";
 
 const TUTORIAL_STORAGE_KEY = "the_unlisted_tutorial_seen_v1";
 
@@ -82,6 +83,11 @@ const controller = createRunController({
 });
 
 mountAppView(controller, document);
+
+// Presentation layer: procedural 2.5D carriage stage, ticket art, tactile
+// motion cues, and procedural WebAudio. Mounted after the view so the first
+// render has already created the ticket/card DOM it decorates.
+mountPresentation({ doc: document, controller, storage });
 
 if (init.autoStartTutorial) {
   controller.startTutorial({ seed: init.seed });

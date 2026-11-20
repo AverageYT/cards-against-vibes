@@ -12,6 +12,9 @@
   </head>
   <body>
     <div id="app" class="app-shell">
+      <!-- Procedural 2.5D carriage stage: PS1 pixel-art scene behind a crisp UI layer -->
+      <div id="carriage-stage" class="carriage-stage" aria-hidden="true"></div>
+      <div class="stage-veil" aria-hidden="true"></div>
       <!-- Persistent Top Bar -->
       <header class="topbar" role="banner">
         <div class="brand-block">
@@ -42,10 +45,36 @@
           <button type="button" class="btn btn-subtle btn-sm hidden" id="nav-title-btn">
             Title
           </button>
-          <label class="toggle-field" for="reduced-motion-toggle">
-            <input id="reduced-motion-toggle" type="checkbox" />
-            <span>Reduced motion</span>
-          </label>
+          <div class="display-controls" aria-label="Audio and display settings">
+            <button
+              type="button"
+              class="icon-toggle"
+              id="mute-toggle"
+              aria-pressed="false"
+              title="Mute all sound (M)"
+            >
+              <span class="icon-toggle-glyph" id="mute-glyph" aria-hidden="true">♪</span>
+              <span class="icon-toggle-label">Sound</span>
+            </button>
+            <label class="volume-field" for="volume-slider">
+              <span class="volume-label">Vol</span>
+              <input id="volume-slider" type="range" min="0" max="100" step="5" value="70" />
+            </label>
+            <button
+              type="button"
+              class="icon-toggle"
+              id="pixelation-toggle"
+              aria-pressed="true"
+              title="Toggle PS1 pixelation (P)"
+            >
+              <span class="icon-toggle-glyph" aria-hidden="true">▦</span>
+              <span class="icon-toggle-label">Pixel</span>
+            </button>
+            <label class="toggle-field" for="reduced-motion-toggle">
+              <input id="reduced-motion-toggle" type="checkbox" />
+              <span>Reduced motion</span>
+            </label>
+          </div>
         </div>
       </header>
 
@@ -53,6 +82,7 @@
       <main id="title-screen" class="screen-panel title-screen" aria-labelledby="title-heading">
         <div class="title-card">
           <p class="screen-kicker">MIDNIGHT LINE · PASSENGER MANIFEST</p>
+          <div class="title-emblem-row" id="title-emblem-row" aria-hidden="true"></div>
           <h2 id="title-heading" class="title-display">THE UNLISTED</h2>
           <p class="title-tagline">
             An armed Ticket Inspector waits across a scratched carriage table. Match every pair of
