@@ -10,6 +10,7 @@
  */
 
 import { mountStage } from "../visuals/stage.js";
+import { describeLayout } from "../visuals/scene.js";
 import { createSoundEngine, SOUND_IDS } from "../audio/sound.js";
 import { createMotionRail, createSwayController, getMotionProfile, cueForEvent } from "../visuals/motion.js";
 import { cachedTicketFace, cachedTicketBack, emblemSvg, stampMarkDataUri } from "../visuals/tickets.js";
@@ -119,9 +120,21 @@ export function mountPresentation({
       scene: currentScreen,
       mood: moodForScreen(currentScreen),
       reducedMotion,
+      framing: currentFraming(),
     }),
   });
   if (stage) stage.setSettings({ pixelation, dither: 1, scanlines: true, vignette: 0.5 });
+
+  /**
+   * Portrait viewports get the pulled-back camera. The threshold is on aspect
+   * ratio, not width, so a short wide window keeps the desktop framing.
+   */
+  function currentFraming() {
+    const w = (doc.defaultView && doc.defaultView.innerWidth) || 0;
+    const h = (doc.defaultView && doc.defaultView.innerHeight) || 0;
+    if (!w || !h) return "wide";
+    return h / w > 1.15 ? "portrait" : "wide";
+  }
 
   const dom = {
     app: doc.getElementById("app"),
@@ -133,6 +146,38 @@ export function mountPresentation({
     reducedMotionToggle: doc.getElementById("reduced-motion-toggle"),
     titleEmblemRow: doc.getElementById("title-emblem-row"),
   };
+
+  /**
+   * Publish the scene's composition as CSS custom properties on the stage host.
+   * `--scene-<anchor>-x/y/w/h` are percentages of the frame, so the HUD can place
+   * a bell beside the drawn bell without duplicating any projection maths.
+   */
+  function publishSceneAnchors() {
+    if (!dom.stageHost || !dom.stageHost.style || !dom.stageHost.style.setProperty) return;
+    const layout = describeLayout({ framing: currentFraming() });
+    dom.stageHost.setAttribute("data-scene-anchors", String(layout.features.length));
+    for (const f of layout.features) {
+      const set = (k, v) => dom.stageHost.style.setProperty(`--scene-${f.name}-${k}`, v);
+      set("x", `${((f.x / 320) * 100).toFixed(2)}%`);
+      set("y", `${((f.y / 180) * 100).toFixed(2)}%`);
+      set("w", `${((f.w / 320) * 100).toFixed(2)}%`);
+      set("h", `${((f.h / 180) * 100).toFixed(2)}%`);
+    }
+    dom.stageHost.setAttribute("data-framing", currentFraming());
+  }
+
+  // Anchors must survive a resize/rotation: recompute and republish.
+  if (doc.defaultView && typeof doc.defaultView.addEventListener === "function") {
+    const onResize = () => {
+      publishSceneAnchors();
+      if (stage && typeof stage.refresh === "function") stage.refresh();
+    };
+    doc.defaultView.addEventListener("resize", onResize);
+    listeners.push(() => doc.defaultView.removeEventListener("resize", onResize));
+  }
+
+  publishSceneAnchors();
+
 
   function setPressed(node, pressed) {
     if (!node) return;

@@ -26,6 +26,14 @@ import {
   rgb,
   scale,
 } from "../data/palette.js";
+import {
+  CAMERAS,
+  COMPARTMENT,
+  ROWS,
+  TABLE,
+  halfWidthAt,
+  zAt,
+} from "./layout.js";
 
 const NEAR_Z = 0.06;
 const UP_Y = 1;
@@ -56,12 +64,12 @@ function norm(a) {
 // Camera
 // ---------------------------------------------------------------------------
 
-function makeCamera(pos, target, fovDegrees, width, height) {
+function makeCamera(pos, target, fovDegrees, width, height, horizon = 0.46) {
   const forward = norm(sub(target, pos));
   const right = norm(cross(forward, [0, UP_Y, 0]));
   const up = cross(right, forward);
   const focal = height / 2 / Math.tan((fovDegrees * Math.PI) / 360);
-  return { pos, forward, right, up, focal, width, height, cx: width / 2, cy: height * 0.46 };
+  return { pos, forward, right, up, focal, width, height, cx: width / 2, cy: height * horizon };
 }
 
 /**
@@ -124,121 +132,281 @@ function pushGrid(out, x0, x1, z0, z1, y, cols, rows, mat, wobble = 0) {
 }
 
 function buildCarriageGeometry() {
-  const back = [];
+  const bg = [];
+  const { halfWidth: hw, ceiling, backWallZ: bz } = COMPARTMENT;
+  const { farZ, nearZ, farHalfWidth, nearHalfWidth, top, thickness } = TABLE;
 
-  // --- Back wall (dark panelled wood) with brass horizontal rail ------------
-  pushGrid(back, -1.35, 1.35, 2.19, 2.2, 0, 1, 1, "wood0"); // placeholder-safe
-  pushQuad(back, [-1.35, 0, 2.2], [1.35, 0, 2.2], [1.35, 2.15, 2.2], [-1.35, 2.15, 2.2], "wood0");
-  // Wall panelling seams (two raised bands).
-  pushBox(back, [-1.35, 0.72, 2.14], [1.35, 0.76, 2.2], "wood1");
-  pushBox(back, [-1.35, 1.62, 2.14], [1.35, 1.66, 2.2], "wood1");
-  // Luggage rack rails above the window.
-  pushBox(back, [-1.3, 1.92, 2.05], [1.3, 1.955, 2.1], "brass1");
-  pushBox(back, [-1.3, 1.995, 2.02], [1.3, 2.03, 2.06], "brass0");
+  // =====================================================================
+  // LAYER 1 - BACKGROUND (walls, ceiling, rack, window, far bench)
+  // =====================================================================
 
-  // --- Side walls (very dark, they only frame the shot) -------------------
-  pushQuad(back, [-1.35, 0, 2.2], [-1.35, 0, -0.2], [-1.35, 2.15, -0.2], [-1.35, 2.15, 2.2], "ink1");
-  pushQuad(back, [1.35, 0, -0.2], [1.35, 0, 2.2], [1.35, 2.15, 2.2], [1.35, 2.15, -0.2], "ink1");
-  // Ceiling.
-  pushQuad(back, [-1.35, 2.15, 2.2], [1.35, 2.15, 2.2], [1.35, 2.15, -0.2], [-1.35, 2.15, -0.2], "ink0");
+  // --- Back wall: panelled wood, seam bands, skirting -------------------
+  pushQuad(bg, [-hw, 0, bz], [hw, 0, bz], [hw, ceiling, bz], [-hw, ceiling, bz], "wood0");
+  // Raised panel bands read as moulding under a raking lamp.
+  pushBox(bg, [-hw, 0.52, bz - 0.045], [hw, 0.56, bz - 0.005], "wood1");
+  pushBox(bg, [-hw, 1.46, bz - 0.045], [hw, 1.5, bz - 0.005], "wood1");
+  // Skirting board.
+  pushBox(bg, [-hw, 0, bz - 0.06], [hw, 0.12, bz - 0.005], "wood1");
 
-  // --- Window: recessed brass frame + cold glass -------------------------
-  const wx0 = -1.02;
-  const wx1 = -0.06;
-  const wy0 = 0.92;
-  const wy1 = 1.78;
-  // Frame.
-  pushBox(back, [wx0 - 0.05, wy0 - 0.05, 2.12], [wx1 + 0.05, wy0, 2.2], "brass1");
-  pushBox(back, [wx0 - 0.05, wy1, 2.12], [wx1 + 0.05, wy1 + 0.05, 2.2], "brass1");
-  pushBox(back, [wx0 - 0.05, wy0, 2.12], [wx0, wy1, 2.2], "brass1");
-  pushBox(back, [wx1, wy0, 2.12], [wx1 + 0.05, wy1, 2.2], "brass0");
+  // --- Side walls: they crop the shot and frame the table --------------
+  pushQuad(bg, [-hw, 0, bz], [-hw, 0, nearZ - 0.5], [-hw, ceiling, nearZ - 0.5], [-hw, ceiling, bz], "ink1");
+  pushQuad(bg, [hw, 0, nearZ - 0.5], [hw, 0, bz], [hw, ceiling, bz], [hw, ceiling, nearZ - 0.5], "ink1");
+  // Ceiling with a soft cove: two quads so the lamp pool lands unevenly.
+  pushQuad(bg, [-hw, ceiling, bz], [hw, ceiling, bz], [hw, ceiling, 0.4], [-hw, ceiling, 0.4], "ink0");
+  pushQuad(bg, [-hw, ceiling, 0.4], [hw, ceiling, 0.4], [hw, ceiling, nearZ - 0.5], [-hw, ceiling, nearZ - 0.5], "ink0");
+  // Ceiling cove trim where wall meets ceiling.
+  pushBox(bg, [-hw, ceiling - 0.045, bz - 0.08], [hw, ceiling, bz], "wood1");
+
+  // --- Luggage rack: two brass rails + brass netting uprights ----------
+  const rackY = ceiling - 0.14;
+  const rackZ0 = 1.62;
+  const rackZ1 = bz - 0.06;
+  pushBox(bg, [-hw + 0.04, rackY, rackZ0], [-hw + 0.075, rackY + 0.028, rackZ1], "brass1");
+  pushBox(bg, [hw - 0.075, rackY, rackZ0], [hw - 0.04, rackY + 0.028, rackZ1], "brass1");
+  // Front lip so the rack has thickness from below.
+  pushBox(bg, [-hw + 0.04, rackY - 0.03, rackZ0], [hw - 0.04, rackY, rackZ0 + 0.05], "brass0");
+  for (const rx of [-0.72, -0.24, 0.24, 0.72]) {
+    pushBox(bg, [rx - 0.012, rackY, rackZ0 + 0.02], [rx + 0.012, ceiling - 0.05, rackZ0 + 0.05], "brass0");
+  }
+
+  // --- Window: brass frame, glazing bars, cold night beyond ------------
+  // Deliberately offset left of the Inspector so the cold light rims him.
+  const wx0 = COMPARTMENT.window.x0;
+  const wx1 = COMPARTMENT.window.x1;
+  const wy0 = COMPARTMENT.window.y0;
+  const wy1 = COMPARTMENT.window.y1;
+  const wFrameZ = bz - 0.1;
+  pushQuad(bg, [wx0, wy0, wFrameZ], [wx1, wy0, wFrameZ], [wx1, wy1, wFrameZ], [wx0, wy1, wFrameZ], "rain0");
+  // Frame: four brass bars with a deeper sill.
+  pushBox(bg, [wx0 - 0.055, wy0 - 0.07, wFrameZ - 0.01], [wx1 + 0.055, wy0, wFrameZ + 0.02], "brass1");
+  pushBox(bg, [wx0 - 0.055, wy1, wFrameZ - 0.01], [wx1 + 0.055, wy1 + 0.05, wFrameZ + 0.02], "brass1");
+  pushBox(bg, [wx0 - 0.055, wy0, wFrameZ - 0.01], [wx0, wy1, wFrameZ + 0.02], "brass1");
+  pushBox(bg, [wx1, wy0, wFrameZ - 0.01], [wx1 + 0.055, wy1, wFrameZ + 0.02], "brass0");
   // Glazing bars.
-  pushBox(back, [wx0, 1.32, 2.16], [wx1, 1.36, 2.19], "brass0");
-  pushBox(back, [(wx0 + wx1) / 2 - 0.02, wy0, 2.16], [(wx0 + wx1) / 2 + 0.02, wy1, 2.19], "brass0");
+  pushBox(bg, [wx0, (wy0 + wy1) / 2, wFrameZ - 0.005], [wx1, (wy0 + wy1) / 2 + 0.035, wFrameZ + 0.01], "brass0");
+  const wmid = (wx0 + wx1) / 2;
+  pushBox(bg, [wmid - 0.014, wy0, wFrameZ - 0.005], [wmid + 0.014, wy1, wFrameZ + 0.01], "brass0");
 
-  // --- Opposite bench (Inspector's seat) ---------------------------------
-  pushBox(back, [-1.2, 0.0, 1.72], [1.2, 0.44, 2.08], "wood1");
-  pushBox(back, [-1.2, 0.44, 1.74], [1.2, 0.5, 2.04], "wood2");
-  pushBox(back, [-1.2, 0.5, 1.74], [1.2, 1.28, 1.78], "wood2"); // backrest
-  // Bench brass grab rail.
-  pushBox(back, [-1.2, 1.3, 1.71], [1.2, 1.34, 1.75], "brass1");
+  // --- Far bench (the Inspector's seat), buttoned upholstery -----------
+  // Seated on it, his shoulders must clear the table's far lip.
+  const benchZ0 = farZ + 0.12;
+  const benchZ1 = bz - 0.12;
+  const seatY = 0.46;
+  pushBox(bg, [-hw + 0.06, 0, benchZ0], [hw - 0.06, seatY, benchZ1], "velvet1");
+  pushBox(bg, [-hw + 0.06, seatY - 0.05, benchZ0], [hw - 0.06, seatY, benchZ1], "velvet2");
+  // Backrest, divided into buttoned panels.
+  pushQuad(bg, [-hw + 0.06, seatY, benchZ1], [hw - 0.06, seatY, benchZ1], [hw - 0.06, seatY + 0.72, benchZ1], [-hw + 0.06, seatY + 0.72, benchZ1], "velvet1");
+  for (let i = 0; i < 5; i += 1) {
+    const x0 = -hw + 0.08 + i * ((2 * hw - 0.16) / 5);
+    const x1 = x0 + (2 * hw - 0.16) / 5 - 0.02;
+    pushBox(bg, [x0, seatY + 0.08, benchZ1 - 0.02], [x1, seatY + 0.62, benchZ1 - 0.005], "velvet2");
+  }
+  // Brass grab rail along the top of the backrest.
+  pushBox(bg, [-hw + 0.06, seatY + 0.72, benchZ1 - 0.05], [hw - 0.06, seatY + 0.76, benchZ1], "brass1");
 
-  // --- Fold-down table: apron, brass brackets, scratched top -------------
-  const tx = 0.66;
-  const tz0 = 0.02;
-  const tz1 = 1.12;
-  const ty = 0.585;
-  // Apron (front face of the folded leaf).
-  pushBox(back, [-tx, ty - 0.085, tz0], [tx, ty, tz0 + 0.03], "wood1");
-  // Brass hinges.
-  pushBox(back, [-0.42, ty - 0.09, tz0 - 0.005], [-0.3, ty, tz0 + 0.02], "brass1");
-  pushBox(back, [0.3, ty - 0.09, tz0 - 0.005], [0.42, ty, tz0 + 0.02], "brass1");
-  // The scratched tabletop itself, as a lit facet grid.
-  pushGrid(back, -tx, tx, tz0 + 0.02, tz1, ty, 9, 10, "wood3", 0.0016);
-  // Darker varnished wear band down the middle of the table.
-  pushGrid(back, -0.12, 0.14, tz0 + 0.3, tz1 - 0.08, ty + 0.002, 3, 6, "wood2", 0.001);
-  // Raised brass edge trim along the far lip.
-  pushBox(back, [-tx, ty, tz1 - 0.03], [tx, ty + 0.012, tz1], "brass1");
+  // =====================================================================
+  // LAYER 2 - TABLE (its own layer: it must occlude the Inspector's cloak)
+  // =====================================================================
+  const table = [];
 
-  return back;
+  // Top surface, subdivided so the lamp pool bands across facets.
+  const cols = 14;
+  const rowsN = 12;
+  for (let r = 0; r < rowsN; r += 1) {
+    const t0 = r / rowsN;
+    const t1 = (r + 1) / rowsN;
+    const z0 = farZ + (nearZ - farZ) * t0;
+    const z1 = farZ + (nearZ - farZ) * t1;
+    const hw0 = farHalfWidth + (nearHalfWidth - farHalfWidth) * t0;
+    const hw1 = farHalfWidth + (nearHalfWidth - farHalfWidth) * t1;
+    for (let c = 0; c < cols; c += 1) {
+      const u0 = c / cols;
+      const u1 = (c + 1) / cols;
+      const ax = -hw0 + 2 * hw0 * u0;
+      const bx = -hw0 + 2 * hw0 * u1;
+      const cx2 = -hw1 + 2 * hw1 * u1;
+      const dx2 = -hw1 + 2 * hw1 * u0;
+      // Plank unevenness: a fraction of a millimetre reads as scratched varnish.
+      const wob = ((c * 7 + r * 13) % 4) * 0.0009;
+      pushQuad(
+        table,
+        [ax, top + wob, z0],
+        [bx, top + wob, z0],
+        [cx2, top + wob, z1],
+        [dx2, top + wob, z1],
+        "wood3"
+      );
+    }
+  }
+
+  // Varnish wear: a darker trodden band where hands and tickets go.
+  for (let r = 2; r < rowsN - 1; r += 1) {
+    const t0 = r / rowsN;
+    const t1 = (r + 1) / rowsN;
+    const z0 = farZ + (nearZ - farZ) * t0;
+    const z1 = farZ + (nearZ - farZ) * t1;
+    const hw0 = (farHalfWidth + (nearHalfWidth - farHalfWidth) * t0) * 0.52;
+    const hw1 = (farHalfWidth + (nearHalfWidth - farHalfWidth) * t1) * 0.52;
+    pushQuad(
+      table,
+      [-hw0, top + 0.0016, z0],
+      [hw0, top + 0.0016, z0],
+      [hw1, top + 0.0016, z1],
+      [-hw1, top + 0.0016, z1],
+      "wood2"
+    );
+  }
+
+  // Near rail: a raised brass-banded lip at the passenger's edge.
+  pushQuad(table, [-nearHalfWidth, top, nearZ], [nearHalfWidth, top, nearZ], [nearHalfWidth, top - thickness, nearZ], [-nearHalfWidth, top - thickness, nearZ], "wood1");
+  pushBox(table, [-nearHalfWidth, top - 0.02, nearZ - 0.018], [nearHalfWidth, top + 0.014, nearZ], "brass1");
+  // Far lip: lower brass trim.
+  pushQuad(table, [-farHalfWidth, top, farZ], [farHalfWidth, top, farZ], [farHalfWidth, top - thickness, farZ], [-farHalfWidth, top - thickness, farZ], "wood1");
+  pushBox(table, [-farHalfWidth, top, farZ - 0.03], [farHalfWidth, top + 0.012, farZ], "brass0");
+  // Side aprons (so the table has an edge, not a paper-thin sheet).
+  pushQuad(table, [-nearHalfWidth, top, nearZ], [-farHalfWidth, top, farZ], [-farHalfWidth, top - thickness, farZ], [-nearHalfWidth, top - thickness, nearZ], "wood1");
+  pushQuad(table, [farHalfWidth, top, farZ], [nearHalfWidth, top, nearZ], [nearHalfWidth, top - thickness, nearZ], [farHalfWidth, top - thickness, farZ], "wood1");
+
+  return { background: bg, table };
 }
 
-const CARRIAGE = buildCarriageGeometry();
+const COMPARTMENT_GEO = buildCarriageGeometry();
+const CARRIAGE = COMPARTMENT_GEO.background;
+const TABLE_GEO = COMPARTMENT_GEO.table;
+
 
 /**
- * Overhead brass lamp + hanging leather straps + the passenger's own seat
- * back in the foreground. Rebuilt each frame because the lamp swings.
+ * Foreground + fixtures.
+ *
+ * Three distinct groups, because they occlude differently:
+ *   - `lamp`: overhead brass lamp (swings, rebuilt each frame)
+ *   - `straps`: hanging leather straps by the window
+ *   - `seat`: the passenger's own seat back, closest to camera
+ *   - `fixtures`: the physical HUD furniture sitting ON the table (bell, slip
+ *     holder, manifest ledger, stamp wells). Drawn after the table so they can
+ *     never be occluded by it.
  */
 function buildForegroundGeometry(lamp) {
   const out = [];
-  const [lx, ly, lz] = lamp.bulb;
+  const { ceiling, halfWidth: hw, nearSeatZ } = COMPARTMENT;
   const rad = (lamp.angle * Math.PI) / 180;
-  const topX = 0.0;
-  const topY = 2.15;
-  const shadeTop = 1.8;
-  const sx = topX + Math.sin(rad) * 0.3;
-  const sz = 0.86;
-  void ly;
+  const topX = -0.6;
+  const topY = ceiling;
+  const shadeTop = 1.36;
+  const sx = topX + Math.sin(rad) * 0.2;
+  const sz = 0.74;
 
   // Cord from the ceiling rose to the shade.
   pushBox(out, [sx - 0.008, shadeTop, sz - 0.008], [sx + 0.008, topY, sz + 0.008], "ink0");
-  pushBox(out, [topX - 0.03, topY - 0.03, sz - 0.03], [topX + 0.03, topY, sz + 0.03], "brass0");
+  pushBox(out, [topX - 0.035, topY - 0.035, sz - 0.035], [topX + 0.035, topY, sz + 0.035], "brass0");
 
   // Brass shade: an inverted frustum, dark inside, lit outside.
   const rTop = 0.045;
-  const rBot = 0.15;
-  const yTop = shadeTop + 0.085;
+  const rBot = 0.14;
+  const yTop = shadeTop + 0.095;
   pushQuad(out, [sx - rBot, shadeTop, sz + rBot], [sx + rBot, shadeTop, sz + rBot], [sx + rTop, yTop, sz + rTop], [sx - rTop, yTop, sz + rTop], "brass2");
   pushQuad(out, [sx + rBot, shadeTop, sz + rBot], [sx + rBot, shadeTop, sz - rBot], [sx + rTop, yTop, sz - rTop], [sx + rTop, yTop, sz + rTop], "brass1");
   pushQuad(out, [sx - rBot, shadeTop, sz - rBot], [sx + rBot, shadeTop, sz - rBot], [sx + rTop, yTop, sz - rTop], [sx - rTop, yTop, sz - rTop], "brass1");
   pushQuad(out, [sx + rBot, shadeTop, sz - rBot], [sx - rBot, shadeTop, sz - rBot], [sx - rTop, yTop, sz - rTop], [sx + rTop, yTop, sz - rTop], "brass0");
   // Shade rim.
-  pushBox(out, [sx - rBot - 0.012, shadeTop - 0.012, sz - rBot - 0.012], [sx + rBot + 0.012, shadeTop, sz + rBot + 0.012], "brass3");
+  pushBox(out, [sx - rBot - 0.014, shadeTop - 0.014, sz - rBot - 0.014], [sx + rBot + 0.014, shadeTop, sz + rBot + 0.014], "brass3");
   // A six-arm spider over the shade so the lamp reads at phone size.
   for (let i = 0; i < 3; i += 1) {
     const a = (i / 3) * Math.PI;
-    const dx = Math.cos(a) * (rBot + 0.03);
-    const dz = Math.sin(a) * (rBot + 0.03);
-    pushBox(out, [sx - Math.abs(dx) - 0.008, shadeTop + 0.01, sz + dz - 0.008], [sx + Math.abs(dx) + 0.008, shadeTop + 0.024, sz + dz + 0.008], "brass0");
+    const dx = Math.cos(a) * (rBot + 0.035);
+    const dz = Math.sin(a) * (rBot + 0.035);
+    pushBox(out, [sx - Math.abs(dx) - 0.009, shadeTop + 0.012, sz + dz - 0.009], [sx + Math.abs(dx) + 0.009, shadeTop + 0.028, sz + dz + 0.009], "brass0");
   }
   // The bulb itself (emissive, drawn late so it blooms).
-  pushQuad(out, [sx - 0.042, shadeTop - 0.075, sz + 0.042], [sx + 0.042, shadeTop - 0.075, sz + 0.042], [sx + 0.042, shadeTop - 0.012, sz + 0.042], [sx - 0.042, shadeTop - 0.012, sz + 0.042], "amber2");
-  pushQuad(out, [sx + 0.042, shadeTop - 0.075, sz + 0.042], [sx + 0.042, shadeTop - 0.075, sz - 0.042], [sx + 0.042, shadeTop - 0.012, sz - 0.042], [sx + 0.042, shadeTop - 0.012, sz + 0.042], "amber1");
-  pushQuad(out, [sx + 0.042, shadeTop - 0.075, sz - 0.042], [sx - 0.042, shadeTop - 0.075, sz - 0.042], [sx - 0.042, shadeTop - 0.012, sz - 0.042], [sx + 0.042, shadeTop - 0.012, sz - 0.042], "amber0");
+  pushQuad(out, [sx - 0.046, shadeTop - 0.082, sz + 0.046], [sx + 0.046, shadeTop - 0.082, sz + 0.046], [sx + 0.046, shadeTop - 0.014, sz + 0.046], [sx - 0.046, shadeTop - 0.014, sz + 0.046], "amber2");
+  pushQuad(out, [sx + 0.046, shadeTop - 0.082, sz + 0.046], [sx + 0.046, shadeTop - 0.082, sz - 0.046], [sx + 0.046, shadeTop - 0.014, sz - 0.046], [sx + 0.046, shadeTop - 0.014, sz + 0.046], "amber1");
+  pushQuad(out, [sx + 0.046, shadeTop - 0.082, sz - 0.046], [sx - 0.046, shadeTop - 0.082, sz - 0.046], [sx - 0.046, shadeTop - 0.014, sz - 0.046], [sx + 0.046, shadeTop - 0.014, sz - 0.046], "amber0");
 
   // Hanging leather straps by each window, with brass buckles.
-  for (const strapX of [-0.86, 0.86]) {
-    pushBox(out, [strapX - 0.034, 1.3, 1.44], [strapX + 0.034, 2.14, 1.49], "wood0");
-    pushBox(out, [strapX - 0.042, 1.3, 1.42], [strapX + 0.042, 1.35, 1.5], "brass1");
+  for (const strapX of [-0.98, 0.98]) {
+    pushBox(out, [strapX - 0.032, 1.22, 1.4], [strapX + 0.032, ceiling - 0.02, 1.45], "wood0");
+    pushBox(out, [strapX - 0.04, 1.22, 1.38], [strapX + 0.04, 1.27, 1.47], "brass1");
   }
 
-  // Foreground seat back: the passenger's own bench, framing the bottom edge.
-  pushBox(out, [-1.5, -0.3, -0.42], [1.5, 0.34, -0.26], "wood0");
-  pushBox(out, [-1.5, 0.34, -0.44], [1.5, 0.385, -0.24], "wood1");
-  pushBox(out, [-1.5, 0.385, -0.42], [1.5, 0.42, -0.22], "brass0");
+  // The passenger's own seat back: the nearest thing to camera. It is what
+  // makes the shot read as "seated", and it crops the table's near corners.
+  pushBox(out, [-hw - 0.2, -0.4, nearSeatZ - 0.12], [hw + 0.2, 0.5, nearSeatZ + 0.1], "velvet1");
+  pushBox(out, [-hw - 0.2, 0.5, nearSeatZ - 0.14], [hw + 0.2, 0.545, nearSeatZ + 0.12], "velvet2");
+  pushBox(out, [-hw - 0.2, 0.545, nearSeatZ - 0.12], [hw + 0.2, 0.575, nearSeatZ + 0.1], "brass0");
+  // Buttoned tufting on the near seat back.
+  for (let i = -3; i <= 3; i += 1) {
+    pushBox(out, [i * 0.32 - 0.016, 0.18, nearSeatZ + 0.1], [i * 0.32 + 0.016, 0.212, nearSeatZ + 0.128], "velvet0");
+  }
 
   return out;
 }
+
+/**
+ * The physical HUD furniture on the table. Derived entirely from `ROWS` in
+ * layout.js so the DOM controls anchored to the same rows land exactly on them.
+ */
+function buildFixtureGeometry() {
+  const out = [];
+  const { top } = TABLE;
+
+  // --- Bell fixture (Unlisted streak / Final Call) ----------------------
+  const bellZ = zAt(ROWS.bell.t);
+  const bellX = ROWS.bell.x;
+  pushBox(out, [bellX - 0.075, top, bellZ - 0.055], [bellX + 0.075, top + 0.018, bellZ + 0.055], "brass1");
+  // Bell dome + handle.
+  pushBox(out, [bellX - 0.036, top + 0.018, bellZ - 0.03], [bellX + 0.036, top + 0.05, bellZ + 0.03], "brass2");
+  pushBox(out, [bellX - 0.026, top + 0.05, bellZ - 0.022], [bellX + 0.026, top + 0.072, bellZ + 0.022], "brass3");
+  pushBox(out, [bellX - 0.008, top + 0.072, bellZ - 0.008], [bellX + 0.008, top + 0.086, bellZ + 0.008], "brass1");
+  // Three filing notches cut into the base's front edge (the streak reading).
+  for (let i = 0; i < 3; i += 1) {
+    const nx = bellX - 0.048 + i * 0.048;
+    pushBox(out, [nx - 0.008, top + 0.002, bellZ + 0.055], [nx + 0.008, top + 0.014, bellZ + 0.058], "ink0");
+  }
+
+  // --- Paper slip in a spring-clip holder (turn + action prompt) -------
+  const slipZ = zAt(ROWS.slip.t);
+  const slipX = ROWS.slip.x;
+  pushBox(out, [slipX - 0.135, top, slipZ - 0.05], [slipX + 0.135, top + 0.006, slipZ + 0.05], "wood1");
+  // The slip itself: a slightly raised cream card, tilted toward the player.
+  pushQuad(
+    out,
+    [slipX - 0.12, top + 0.006, slipZ + 0.045],
+    [slipX + 0.12, top + 0.006, slipZ + 0.045],
+    [slipX + 0.105, top + 0.02, slipZ - 0.04],
+    [slipX - 0.105, top + 0.02, slipZ - 0.04],
+    "paper0"
+  );
+  // Clip.
+  pushBox(out, [slipX - 0.03, top + 0.02, slipZ - 0.03], [slipX + 0.03, top + 0.03, slipZ - 0.005], "brass1");
+
+  // --- Manifest ledger at the table corner -----------------------------
+  const manZ = zAt(ROWS.manifest.t);
+  const manX = ROWS.manifest.x;
+  pushBox(out, [manX - 0.115, top, manZ - 0.06], [manX + 0.115, top + 0.01, manZ + 0.06], "wood1");
+  pushQuad(
+    out,
+    [manX - 0.105, top + 0.01, manZ + 0.055],
+    [manX + 0.105, top + 0.01, manZ + 0.055],
+    [manX + 0.115, top + 0.022, manZ - 0.05],
+    [manX - 0.095, top + 0.022, manZ - 0.05],
+    "paper1"
+  );
+  // Loose pages peeking out.
+  pushBox(out, [manX - 0.09, top + 0.011, manZ - 0.075], [manX + 0.1, top + 0.016, manZ - 0.05], "paper0");
+
+  // --- Stamp wells cut into the near rail ------------------------------
+  const wellZ = zAt(ROWS.wells.t);
+  for (let i = 0; i < 3; i += 1) {
+    const wx = -0.42 + i * 0.42;
+    // Recessed well: dark inner box with a brass lip.
+    pushBox(out, [wx - 0.16, top - 0.02, wellZ - 0.075], [wx + 0.16, top + 0.004, wellZ + 0.075], "ink1");
+    pushBox(out, [wx - 0.17, top - 0.006, wellZ + 0.07], [wx + 0.17, top + 0.008, wellZ + 0.085], "brass0");
+  }
+
+  return out;
+}
+
+const FIXTURES = buildFixtureGeometry();
 
 // ---------------------------------------------------------------------------
 // Lighting
@@ -579,7 +747,7 @@ function getInspectorFrame(breathing, headTilt, handLift) {
  * perfectly aligned to the internal resolution.
  */
 function drawInspector(ctx, cam, { time, reducedMotion, mood }) {
-  const anchorWorld = [0.06, 0.5, 1.52];
+  const anchorWorld = [0, 0.80, 1.66];
   const v = toView(cam, anchorWorld);
   if (v[2] < NEAR_Z) return null;
   const base = projectView(cam, v);
@@ -593,7 +761,8 @@ function drawInspector(ctx, cam, { time, reducedMotion, mood }) {
   const frame = getInspectorFrame(breathing, headTilt, handLift);
 
   const originX = Math.round(base[0] - SPRITE_WIDTH / 2);
-  const originY = Math.round(base[1] - SPRITE_HEIGHT + 16);
+  // +14 pushes his hem below the table's far lip, so the table occludes it.
+  const originY = Math.round(base[1] - SPRITE_HEIGHT + 14);
 
   // Contact shadow under the coat so he sits in the space instead of floating.
   ctx.save();
@@ -604,38 +773,69 @@ function drawInspector(ctx, cam, { time, reducedMotion, mood }) {
   ctx.fill();
   ctx.restore();
 
+  // Rim light pass: the window is the light source, so the silhouette's
+  // left-facing edge and the top of each run catch a thin cold highlight. This
+  // is what keeps a near-black coat readable against a near-black bench.
+  const rimPixels = new Set();
+  const rowFirstRun = new Map();
+  for (const run of frame.runs) {
+    if (!rowFirstRun.has(run.y)) rowFirstRun.set(run.y, run);
+    else {
+      const prev = rowFirstRun.get(run.y);
+      if (run.x < prev.x) rowFirstRun.set(run.y, run);
+    }
+  }
+  for (const [y, run] of rowFirstRun) {
+    // Only the upper hood catches the glass. Below that the coat is in the
+    // bench shadow, and rimming the whole edge looked like a neon outline.
+    if (y < 3 || y > 20) continue;
+    rimPixels.add(`${run.x},${y}`);
+  }
+
   for (const run of frame.runs) {
     const paletteId = SPRITE_KEYS[run.key];
     if (!paletteId) continue;
     let c = rgb(paletteId);
-    // He is one warm figure lit from the lamp above-left of the table.
-    if (mood === "cold") c = mix(c, rgb("rain1"), 0.2);
-    else if (mood === "warm") c = mix(c, rgb("amber0"), 0.14);
+    // He is one cold figure; the lamp only warms him slightly from upper-left.
+    if (mood === "cold") c = mix(c, rgb("rain1"), 0.26);
+    else if (mood === "warm") c = mix(c, rgb("amber0"), 0.16);
     const [r, g, b] = ditherColor(c, originX + run.x, originY + run.y);
     ctx.fillStyle = `rgb(${r | 0},${g | 0},${b | 0})`;
     ctx.fillRect(originX + run.x, originY + run.y, run.w, 1);
+  }
+
+  // Second pass: paint the rim highlight on the silhouette edge. Deliberately
+  // below the glass' own value so it reads as reflected light, not an outline.
+  ctx.fillStyle = "rgb(74,100,126)";
+  for (const key of rimPixels) {
+    const [rx, ry] = key.split(",").map(Number);
+    ctx.fillRect(originX + rx, originY + ry, 1, 1);
   }
 
   return { x: originX, y: originY, width: SPRITE_WIDTH, height: SPRITE_HEIGHT };
 }
 
 /** Faint window-glass reflection of the Inspector, mirrored across the table. */
-function drawInspectorReflection(ctx, cam, sprite) {
-  if (!sprite) return;
-  const glassY = 78;
-  const glassX0 = 266;
-  const glassX1 = 300;
+function drawInspectorReflection(ctx, cam, sprite, windowRect) {
+  if (!sprite || !windowRect) return;
+  // Mirrored in the glass: only the head/shoulder band, and only inside the
+  // window, so it never reads as a second character.
+  const glassY = windowRect.y + Math.round(windowRect.h * 0.52);
+  const glassX0 = windowRect.x + Math.round(windowRect.w * 0.56);
+  const maxW = Math.round(windowRect.w * 0.38);
   ctx.save();
-  ctx.globalAlpha = 0.1;
-  ctx.fillStyle = "rgb(168,198,220)";
+  ctx.beginPath();
+  ctx.rect(windowRect.x + 1, windowRect.y + 1, windowRect.w - 2, windowRect.h - 2);
+  ctx.clip();
   for (let y = 0; y < 14; y += 1) {
-    const srcY = sprite.y + 6 + y;
-    const w = Math.round(16 - y * 0.9);
+    const w = Math.round(maxW - y * 1.1);
     if (w <= 0) break;
-    ctx.fillRect(glassX0 + 2 + Math.abs(Math.sin(y)), glassY + y, w, 1);
+    ctx.globalAlpha = 0.1 - y * 0.005;
+    ctx.fillStyle = "rgb(168,198,220)";
+    // The head silhouette: wider at the shoulders, narrowing at the hood.
+    const inset = Math.round(y * 0.35);
+    ctx.fillRect(glassX0 + inset, glassY + y, Math.max(1, w - inset), 1);
   }
-  ctx.globalAlpha = 0.06;
-  ctx.fillRect(glassX0, glassY, glassX1 - glassX0, 16);
   ctx.restore();
 }
 
@@ -644,27 +844,29 @@ function drawInspectorReflection(ctx, cam, sprite) {
 // ---------------------------------------------------------------------------
 
 function drawLightCone(ctx, lamp) {
-  const shade = [
-    [0.26, 1.62, 0.86],
-    [0.26, 1.62, 0.86],
-  ];
-  void shade;
-  // A soft trapezoid under the lampshade, brightest near the bulb.
-  const topY = 66;
-  const bottomY = 128;
-  const grad = ctx.createLinearGradient(0, topY, 0, bottomY);
-  grad.addColorStop(0, "rgba(255,231,184,0.16)");
-  grad.addColorStop(0.55, "rgba(240,191,124,0.07)");
-  grad.addColorStop(1, "rgba(240,191,124,0)");
+  // The lamp's pool on the table. Drawn as a stack of horizontal bands whose
+  // width and opacity both fall off, so there is no straight polygon edge for
+  // the eye to catch — the light simply thins into the dark.
+  const cx = Number.isFinite(lamp.x) ? lamp.x : 160;
+  const topY = Math.round(lamp.topY || 60);
+  const bottomY = Math.round(lamp.bottomY || 158);
+  const sway = lamp.swingPx || 0;
   ctx.save();
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.moveTo(154 + lamp.swingPx, topY);
-  ctx.lineTo(166 + lamp.swingPx, topY);
-  ctx.lineTo(238 + lamp.swingPx, bottomY);
-  ctx.lineTo(84 + lamp.swingPx, bottomY);
-  ctx.closePath();
-  ctx.fill();
+  const bands = 26;
+  for (let i = 0; i < bands; i += 1) {
+    const t = i / (bands - 1);
+    const y = topY + (bottomY - topY) * t;
+    // Widens downward but stays inside the table.
+    const halfW = 14 + 66 * t * t;
+    // Fades out toward both ends of the cone.
+    const fade = Math.sin(Math.PI * Math.min(1, t * 1.15)) ** 1.4;
+    const alpha = 0.085 * fade;
+    if (alpha <= 0.002) continue;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = "rgb(240,191,124)";
+    const py = Math.round(y);
+    ctx.fillRect(Math.round(cx - halfW + sway), py, Math.round(halfW * 2), 1);
+  }
   ctx.restore();
 }
 
@@ -819,26 +1021,28 @@ function applyPostPass(ctx, width, height, options, time) {
  * @returns {{window: {x:number,y:number,w:number,h:number}}}
  */
 export function drawScene(ctx, opts = {}) {
-  const scale = Math.max(1, Math.round(opts.scale || 1));
-  const width = INTERNAL_SIZE.width * scale;
-  const height = INTERNAL_SIZE.height * scale;
+  const scaleK = Math.max(1, Math.round(opts.scale || 1));
+  const width = INTERNAL_SIZE.width * scaleK;
+  const height = INTERNAL_SIZE.height * scaleK;
   const time = Number.isFinite(opts.time) ? opts.time : 0;
   const reducedMotion = Boolean(opts.reducedMotion);
   const mood = opts.mood || "neutral";
+  const framing = CAMERAS[opts.framing] || CAMERAS.wide;
 
   ctx.save();
-  if (scale !== 1) ctx.scale(scale, scale);
+  if (scaleK !== 1) ctx.scale(scaleK, scaleK);
 
   // Base ink fill so clipped corners never show page colour.
   ctx.fillStyle = "#04060b";
-  ctx.fillRect(0, 0, width, height);
+  ctx.fillRect(0, 0, INTERNAL_SIZE.width, INTERNAL_SIZE.height);
 
-  const baseCam = makeCamera(
-    SCENE_TUNING.camera.pos,
-    SCENE_TUNING.camera.target,
-    SCENE_TUNING.fovDegrees,
-    width,
-    height
+  const cam = makeCamera(
+    framing.pos,
+    framing.target,
+    framing.fovDegrees,
+    INTERNAL_SIZE.width,
+    INTERNAL_SIZE.height,
+    framing === CAMERAS.portrait ? 0.42 : 0.43
   );
 
   // Subtle carriage sway: the whole world drifts under the camera.
@@ -849,15 +1053,12 @@ export function drawScene(ctx, opts = {}) {
     : Math.cos(swayPhase * 0.73) * SCENE_TUNING.swayAmount * height * SCENE_TUNING.headSwayScale;
 
   const lamp = lampPosition(time, reducedMotion);
-  const cam = baseCam;
 
-  // Window rectangle in screen space (for the rain overlay clip + reflection).
-  const wv = [
-    toView(cam, [-1.02, 0.92, 2.16]),
-    toView(cam, [-0.06, 1.78, 2.16]),
-  ];
-  const wa = projectView(cam, wv[0]);
-  const wb = projectView(cam, wv[1]);
+  // Window rectangle in screen space (rain clip + reflection + HUD anchor).
+  const wv0 = toView(cam, [COMPARTMENT.window.x0, COMPARTMENT.window.y0, COMPARTMENT.backWallZ - 0.1]);
+  const wv1 = toView(cam, [COMPARTMENT.window.x1, COMPARTMENT.window.y1, COMPARTMENT.backWallZ - 0.1]);
+  const wa = projectView(cam, wv0);
+  const wb = projectView(cam, wv1);
   const windowRect = {
     x: Math.round(Math.min(wa[0], wb[0]) + swayX),
     y: Math.round(Math.min(wa[1], wb[1]) + swayY),
@@ -865,76 +1066,354 @@ export function drawScene(ctx, opts = {}) {
     h: Math.round(Math.abs(wb[1] - wa[1])),
   };
 
-  // 1. Environment (painter's algorithm, far to near).
+  // ---- LAYER 1: background (walls, rack, window, far bench) -----------
   drawGeometry(ctx, cam, CARRIAGE, lamp, swayX, swayY);
-  drawGeometry(ctx, cam, buildForegroundGeometry(lamp), lamp, swayX, swayY);
 
-  // 2. Rain behind the glazing bars.
+  // ---- LAYER 2: rain behind the glazing bars + cold glow --------------
   drawRain(ctx, time, reducedMotion, {
     x: windowRect.x + 1,
     y: windowRect.y + 1,
     w: Math.max(1, windowRect.w - 2),
     h: Math.max(1, windowRect.h - 2),
   });
-
-  // 3. Cold window glow bleeding onto the frame.
   ctx.save();
-  ctx.globalAlpha = 0.2;
+  ctx.globalAlpha = 0.22;
   const glow = ctx.createRadialGradient(
     windowRect.x + windowRect.w * 0.5,
     windowRect.y + windowRect.h * 0.5,
     2,
     windowRect.x + windowRect.w * 0.5,
     windowRect.y + windowRect.h * 0.5,
-    windowRect.w * 0.85
+    windowRect.w * 1.05
   );
   glow.addColorStop(0, "rgb(168,198,220)");
   glow.addColorStop(1, "rgba(29,42,68,0)");
   ctx.fillStyle = glow;
-  ctx.fillRect(windowRect.x - 26, windowRect.y - 22, windowRect.w + 52, windowRect.h + 44);
+  ctx.fillRect(windowRect.x - 34, windowRect.y - 30, windowRect.w + 68, windowRect.h + 60);
   ctx.restore();
 
-  // 4. Inspector billboard + his faint glass reflection.
+  // ---- LAYER 3: Inspector (cloak runs below the table line; the table
+  //      is drawn after him, so his lower body is occluded by it) --------
   const sprite = drawInspector(ctx, cam, { time, reducedMotion, mood });
-  drawInspectorReflection(ctx, cam, sprite);
+  drawInspectorReflection(ctx, cam, sprite, windowRect);
 
-  // 5. Lamp glow halo + cone over the table.
+  // ---- LAYER 4: the table, which occludes the cloak -------------------
+  drawGeometry(ctx, cam, TABLE_GEO, lamp, swayX, swayY);
+
+  // Contact shadow where the Inspector's coat meets the table's far lip. Without
+  // it he reads as a cut-out floating above the wood.
+  if (sprite) {
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = "rgb(6,8,12)";
+    const sx0 = Math.max(0, sprite.x + 10);
+    const sw = Math.min(INTERNAL_SIZE.width - sx0, SPRITE_WIDTH - 20);
+    const sy = sprite.y + SPRITE_HEIGHT - 9;
+    for (let i = 0; i < 5; i += 1) {
+      ctx.globalAlpha = 0.42 - i * 0.075;
+      ctx.fillRect(sx0 - i, Math.round(sy + i), sw + i * 2, 1);
+    }
+    ctx.restore();
+  }
+
+  // ---- LAYER 5: fixtures sitting on the table -------------------------
+  drawGeometry(ctx, cam, FIXTURES, lamp, swayX, swayY);
+
+  // ---- LAYER 6: lamp bloom, light cone, dust --------------------------
   const lampScreen = (() => {
     const lv = toView(cam, lamp.bulb);
     return lv[2] < NEAR_Z ? null : projectView(cam, lv);
   })();
   if (lampScreen) {
     ctx.save();
-    ctx.globalCompositeOperation = "source-over";
-    const halo = ctx.createRadialGradient(lampScreen[0], lampScreen[1] - 6, 1, lampScreen[0], lampScreen[1] - 6, 46);
+    const halo = ctx.createRadialGradient(lampScreen[0], lampScreen[1] - 6, 1, lampScreen[0], lampScreen[1] - 6, 52);
     halo.addColorStop(0, "rgba(255,231,184,0.5)");
     halo.addColorStop(0.35, "rgba(240,191,124,0.14)");
     halo.addColorStop(1, "rgba(240,191,124,0)");
     ctx.fillStyle = halo;
-    ctx.fillRect(lampScreen[0] - 48, lampScreen[1] - 54, 96, 96);
+    ctx.fillRect(lampScreen[0] - 54, lampScreen[1] - 60, 108, 108);
     ctx.restore();
   }
-  drawLightCone(ctx, { swingPx: Math.round(lamp.angle * 1.6) });
+  drawLightCone(ctx, { x: lampScreen ? lampScreen[0] : 160, swingPx: Math.round(lamp.angle * 1.6) });
   drawDustMotes(ctx, time, reducedMotion);
+
+  // ---- LAYER 7: foreground (lamp body, straps, passenger's seat) ------
+  drawGeometry(ctx, cam, buildForegroundGeometry(lamp), lamp, swayX, swayY);
 
   ctx.restore();
 
-  // 6. Post pass: pixelate/dither/band/scanline/vignette.
-  applyPostPass(ctx, width, height, {
-    ditherStrength: opts.ditherStrength ?? SCENE_TUNING.ditherStrength,
-    scanlines: opts.scanlines !== false,
-    vignette: opts.vignette ?? SCENE_TUNING.vignetteStrength,
-    grain: opts.grain ?? SCENE_TUNING.grainStrength,
-    reduceMotion: reducedMotion,
-  }, time);
+  // ---- LAYER 8: PS1 post pass ----------------------------------------
+  if (opts.post !== false) {
+    applyPostPass(
+      ctx,
+      width,
+      height,
+      {
+        ditherStrength: opts.ditherStrength ?? SCENE_TUNING.ditherStrength,
+        scanlines: opts.scanlines !== false,
+        vignette: opts.vignette ?? SCENE_TUNING.vignetteStrength,
+        grain: opts.grain ?? SCENE_TUNING.grainStrength,
+        reduceMotion: reducedMotion,
+      },
+      time
+    );
+  }
 
   return { window: windowRect };
+}
+
+/**
+ * Layout probe: projects the composition's key rows through the real camera
+ * and returns their internal-frame rectangles plus a set of pass/fail checks.
+ * Used by `tools/sceneLayout.js` and by the test suite, so the composition is
+ * assertable rather than eyeballed.
+ */
+export function describeLayout(opts = {}) {
+  const framing = CAMERAS[opts.framing] || CAMERAS.wide;
+  const cam = makeCamera(
+    framing.pos,
+    framing.target,
+    framing.fovDegrees,
+    INTERNAL_SIZE.width,
+    INTERNAL_SIZE.height,
+    framing === CAMERAS.portrait ? 0.42 : 0.43
+  );
+  const P = (p) => {
+    const v = toView(cam, p);
+    return v[2] < NEAR_Z ? null : projectView(cam, v);
+  };
+  const rectOf = (points) => {
+    const pts = points.map(P).filter(Boolean);
+    if (!pts.length) return null;
+    const xs = pts.map((p) => p[0]);
+    const ys = pts.map((p) => p[1]);
+    const x = Math.round(Math.min(...xs));
+    const y = Math.round(Math.min(...ys));
+    return {
+      x,
+      y,
+      w: Math.round(Math.max(...xs) - x),
+      h: Math.round(Math.max(...ys) - y),
+    };
+  };
+  const rowRect = (t, halfWidthScale, depth = 0.06) =>
+    rectOf([
+      [-halfWidthAt(t) * halfWidthScale, TABLE.top, zAt(t) - depth],
+      [halfWidthAt(t) * halfWidthScale, TABLE.top, zAt(t) - depth],
+      [-halfWidthAt(t) * halfWidthScale, TABLE.top, zAt(t) + depth],
+      [halfWidthAt(t) * halfWidthScale, TABLE.top, zAt(t) + depth],
+    ]);
+
+  const headAnchor = P([0, 1.28, 1.86]);
+  const features = [];
+  const push = (name, r) => {
+    if (r) features.push({ name, ...r });
+  };
+  push("inspectorHead", headAnchor ? { x: Math.round(headAnchor[0]) - 26, y: Math.round(headAnchor[1]) - 40, w: 52, h: 46 } : null);
+  push("farFan", rowRect(ROWS.farFan.t, 0.42));
+  push("slip", rowRect(ROWS.slip.t, 0.14));
+  push("bell", rowRect(ROWS.bell.t, 0.1));
+  push("manifest", rowRect(ROWS.manifest.t, 0.16));
+  push("nearFan", rowRect(ROWS.nearFan.t, 0.8));
+  push("wells", rowRect(ROWS.wells.t, 0.85));
+  push(
+    "window",
+    rectOf([
+      [COMPARTMENT.window.x0, COMPARTMENT.window.y0, 2.2],
+      [COMPARTMENT.window.x1, COMPARTMENT.window.y0, 2.2],
+      [COMPARTMENT.window.x0, COMPARTMENT.window.y1, 2.2],
+      [COMPARTMENT.window.x1, COMPARTMENT.window.y1, 2.2],
+    ])
+  );
+  push(
+    "tableNearEdge",
+    rectOf([
+      [-TABLE.nearHalfWidth, TABLE.top, TABLE.nearZ],
+      [TABLE.nearHalfWidth, TABLE.top, TABLE.nearZ],
+    ])
+  );
+  push(
+    "tableFarEdge",
+    rectOf([
+      [-TABLE.farHalfWidth, TABLE.top, TABLE.farZ],
+      [TABLE.farHalfWidth, TABLE.top, TABLE.farZ],
+    ])
+  );
+
+  const get = (name) => features.find((f) => f.name === name);
+  const head = get("inspectorHead");
+  const far = get("farFan");
+  const near = get("nearFan");
+  const nearEdge = get("tableNearEdge");
+  const farEdge = get("tableFarEdge");
+
+  const checks = [];
+  const check = (label, pass, detail) => checks.push({ label, pass: Boolean(pass), detail });
+
+  // Upper centre: the Inspector's head straddles the vertical midline and sits
+  // in the top half of the frame.
+  check(
+    "Inspector occupies the upper centre",
+    head && Math.abs(head.x + head.w / 2 - INTERNAL_SIZE.width / 2) < 26 && head.y + head.h < INTERNAL_SIZE.height * 0.62,
+    head ? `centre x=${Math.round(head.x + head.w / 2)}, bottom y=${head.y + head.h}` : "not projected"
+  );
+
+  // The table widens toward the foreground by a clear margin.
+  const farW = farEdge ? farEdge.w : 0;
+  const nearW = nearEdge ? nearEdge.w : 0;
+  check(
+    "Table widens toward the foreground",
+    nearW > farW * 1.9,
+    `far ${farW}px -> near ${nearW}px (${(nearW / Math.max(1, farW)).toFixed(2)}x)`
+  );
+
+  // The two fans sit at the far and near edges, in that order, and neither is
+  // pushed off the frame.
+  check(
+    "Far fan is above the near fan",
+    far && near && far.y + far.h <= near.y,
+    far && near ? `far bottom ${far.y + far.h} < near top ${near.y}` : "not projected"
+  );
+  check(
+    "Both fans are fully inside the frame",
+    far && near && far.y >= 0 && near.y + near.h <= INTERNAL_SIZE.height && far.w <= INTERNAL_SIZE.width && near.w <= INTERNAL_SIZE.width,
+    far && near ? `far ${far.y}..${far.y + far.h}, near ${near.y}..${near.y + near.h}` : "not projected"
+  );
+  // Far fan must clear the Inspector's chin so the room reads through it.
+  check(
+    "Room stays visible between Inspector and far fan",
+    head && far && far.y - (head.y + head.h) > 2,
+    head && far ? `gap ${far.y - (head.y + head.h)}px` : "not projected"
+  );
+
+  return {
+    camera: { pos: framing.pos, target: framing.target, fov: framing.fovDegrees },
+    features,
+    checks,
+  };
+}
+
+/**
+ * Blocking pass: flat silhouettes, no lighting/dither/rain. Every group in one
+ * recognisable flat colour so placement and overlap can be judged in isolation.
+ * Dev-only (tools/sceneLayout.js); never used by the game.
+ */
+export function drawBlocking(ctx, opts = {}) {
+  const scaleK = Math.max(1, Math.round(opts.scale || 1));
+  if (scaleK !== 1) ctx.scale(scaleK, scaleK);
+  const framing = CAMERAS[opts.framing] || CAMERAS.wide;
+  const cam = makeCamera(
+    framing.pos,
+    framing.target,
+    framing.fovDegrees,
+    INTERNAL_SIZE.width,
+    INTERNAL_SIZE.height,
+    framing === CAMERAS.portrait ? 0.42 : 0.43
+  );
+  const paint = (tris, color) => {
+    for (const tri of tris) {
+      const vs = tri.v.map((p) => toView(cam, p));
+      if (vs.every((v) => v[2] < NEAR_Z)) continue;
+      const poly = clipNear(vs);
+      if (poly.length < 3) continue;
+      fillPolygon(ctx, poly.map((p) => projectView(cam, p)), color[0], color[1], color[2]);
+    }
+  };
+  ctx.fillStyle = "#101418";
+  ctx.fillRect(0, 0, INTERNAL_SIZE.width, INTERNAL_SIZE.height);
+  paint(CARRIAGE, [52, 74, 96]);      // background = blue
+  const sprite = drawInspectorBlocking(ctx, cam);
+  paint(TABLE_GEO, [168, 122, 60]);   // table = amber
+  paint(FIXTURES, [96, 200, 140]);    // fixtures = green
+  paint(buildForegroundGeometry(lampPosition(0, true)), [200, 76, 76]); // foreground = red
+  return sprite;
+}
+
+/**
+ * Overlay the two card fans at real ticket proportions (dev/QA only).
+ * Used to prove the compartment stays visible when both hands are full.
+ */
+export function drawFanOverlay(ctx, opts = {}) {
+  const scaleK = Math.max(1, Math.round(opts.scale || 1));
+  if (scaleK !== 1) ctx.scale(scaleK, scaleK);
+  const framing = CAMERAS[opts.framing] || CAMERAS.wide;
+  const cam = makeCamera(
+    framing.pos,
+    framing.target,
+    framing.fovDegrees,
+    INTERNAL_SIZE.width,
+    INTERNAL_SIZE.height,
+    framing === CAMERAS.portrait ? 0.42 : 0.43
+  );
+  const project = (x, y, z) => {
+    const v = toView(cam, [x, y, z]);
+    return v[2] < NEAR_Z ? null : projectView(cam, v);
+  };
+  const paintFan = (row, count, liftStart, scale) => {
+    const t = row.t;
+    const z = zAt(t);
+    const halfW = halfWidthAt(t) * 0.46;
+    // Card size in world units, then projected per corner: a fixed pixel size
+    // would be wrong for both fans at once under this perspective.
+    const cardW = 0.115 * scale;
+    const cardH = 0.155 * scale;
+    for (let i = 0; i < count; i += 1) {
+      const u = count === 1 ? 0 : (i / (count - 1)) * 2 - 1;
+      const x = u * halfW;
+      const lift = i === liftStart ? 0.02 : 0;
+      // Card standing on the table, leaning back very slightly.
+      const corners = [
+        project(x - cardW, TABLE.top + 0.001, z - 0.055),
+        project(x + cardW, TABLE.top + 0.001, z - 0.055),
+        project(x + cardW, TABLE.top + cardH + lift, z - 0.075),
+        project(x - cardW, TABLE.top + cardH + lift, z - 0.075),
+      ];
+      if (corners.some((c) => !c)) continue;
+      ctx.fillStyle = i === liftStart ? "rgb(233,220,192)" : "rgb(198,186,160)";
+      ctx.beginPath();
+      ctx.moveTo(corners[0][0], corners[0][1]);
+      for (let k = 1; k < corners.length; k += 1) ctx.lineTo(corners[k][0], corners[k][1]);
+      ctx.closePath();
+      // The dev Ctx supports polygon fill; fall back to a bounding rect.
+      if (typeof ctx.fill === "function") {
+        ctx.fill();
+      } else {
+        const xs = corners.map((c) => c[0]);
+        const ys = corners.map((c) => c[1]);
+        ctx.fillRect(Math.round(Math.min(...xs)), Math.round(Math.min(...ys)),
+          Math.max(2, Math.round(Math.max(...xs) - Math.min(...xs))),
+          Math.max(2, Math.round(Math.max(...ys) - Math.min(...ys))));
+      }
+    }
+  };
+  paintFan(ROWS.farFan, 4, 1, 1);
+  paintFan(ROWS.nearFan, 5, 2, 1);
+}
+
+/** Flat silhouette of the Inspector for the blocking pass. */
+function drawInspectorBlocking(ctx, cam) {
+  const v = toView(cam, [0, 0.72, 1.72]);
+  if (v[2] < NEAR_Z) return null;
+  const base = projectView(cam, v);
+  const frame = getInspectorFrame(false, 0, 0);
+  const originX = Math.round(base[0] - SPRITE_WIDTH / 2);
+  const originY = Math.round(base[1] - SPRITE_HEIGHT + 14);
+  ctx.fillStyle = "rgb(232,232,232)";
+  for (const run of frame.runs) ctx.fillRect(originX + run.x, originY + run.y, run.w, 1);
+  return { x: originX, y: originY };
 }
 
 export const SCENE_INFO = Object.freeze({
   width: INTERNAL_SIZE.width,
   height: INTERNAL_SIZE.height,
-  geometryTriangles: CARRIAGE.length,
+  // Total across every draw layer, not just the background: the table, the
+  // table fixtures and the foreground are all part of the low-poly budget.
+  geometryTriangles: CARRIAGE.length + TABLE_GEO.length + FIXTURES.length,
+  layerTriangles: {
+    background: CARRIAGE.length,
+    table: TABLE_GEO.length,
+    fixtures: FIXTURES.length,
+  },
   paletteRoles: ["ink", "night", "glass", "wood", "brass", "amber", "coat", "skin", "seal", "paper"],
 });
 

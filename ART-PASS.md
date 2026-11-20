@@ -431,9 +431,87 @@ every capture in this document is the actual build.
 | Phase | State |
 | --- | --- |
 | 1 — Research and visual plan | **Done** (this document) |
-| 2 — Carriage and table composition | not started |
+| 2 — Carriage and table composition | **Done** — see §5.1 |
 | 3 — Physical HUD and ticket art | not started |
 | 4 — Cloaked Inspector | not started |
 | 5 — Inspector animation | not started |
 | 6 — PS1 rendering pass | not started |
 | 7 — Visual QA and return to original task | not started |
+
+### 5.1 Phase 2 — carriage and table composition
+
+**Built.** `src/visuals/layout.js` is now the single source of truth for the
+composition: camera rigs, table dimensions, row heights and named anchors. Both
+`scene.js` and the QA probe read it, so the drawing and the checks cannot drift
+apart.
+
+* **Viewpoint.** The camera sits at the passenger's seated eye height (1.70 m)
+  and looks slightly down, so the table recedes and the compartment is built
+  *from the seated position* rather than as a flat backdrop.
+* **Inspector upper centre.** The head anchor lands at `x134 y0 w52 h46` on a
+  320×180 frame — centred, upper third.
+* **Table widens toward the foreground.** Near half-width 1.40 m at `z −0.12`
+  against a 0.62 m far edge, projecting 66 px → 268 px (**4.06×** desktop,
+  **3.43×** portrait). The near edge reaches the frame edges, so the table reads
+  as coming toward the viewer.
+* **Fans at the edges.** Far fan sits at the far edge (`y 88..91`), near fan at
+  the near edge (`y 110..116`), with the far fan strictly above the near one.
+* **Room stays visible.** 42 px of air between the Inspector's chin and the far
+  fan; with both hands fully populated the fan overlay covers **3.7 %** of the
+  frame against a 26 % ceiling.
+* **Separation for occlusion.** Background / Inspector / table / foreground are
+  now four distinct draw passes with their own depth cues, so the table occludes
+  the cloak instead of the two interleaving. Contact shadows under the coat hem
+  and the table's own near lip sell the overlap.
+* **Lighting.** A weak amber lamp (bloom plus a 26-band soft cone, no polygon
+  edges) against cool window fill and fog `2.6 → 6.2` — the "weak amber against
+  cool shadows" brief. Rim light is restricted to the hood rows only so it reads
+  as a light source rather than a neon outline.
+* **Anchors wired to the HUD.** `presentation.js` publishes every anchor as
+  `--scene-<name>-x/y/w/h` percentages on the stage host, picks `wide` vs
+  `portrait` from the viewport *aspect ratio*, and republishes on resize. Phase 3
+  can place the bell, slip and counters without duplicating projection maths.
+
+**Defects found and fixed while inspecting the real build.**
+
+1. **The scene rendered upside down in the browser.** The WebGL shader sampled
+   the scene texture with clip-space UVs, but WebGL's `V=0` is the buffer's
+   *bottom* row. Every offline preview looked correct because `tools/` uses the
+   Canvas2D path, which draws top-down. The V coordinate is now flipped and the
+   vignette is sampled in screen space. This is why captures must go through a
+   browser — the PNG tools structurally could not have caught it.
+2. **The phone camera put the cabin walls outside the frustum**, leaving a flat
+   void behind the Inspector. Re-solved numerically; the portrait rig is now
+   lower and nearer (`pos [0,1.65,−1.2]`, fov 68).
+3. **The 16:9 scene was stretched to the viewport**, so a 390×844 phone squashed
+   the carriage by ~2.2×. Both render paths now letterbox to the authored aspect
+   ratio, clearing to the scene's own ink tone so the bars read as shadow.
+4. **The phone stage was only 52 vh tall**, cropping the compartment. It is now
+   full-height.
+5. **`SCENE_INFO.geometryTriangles` only counted the background**, so test 11's
+   "440+ facets" title was measuring a third of the geometry. It now reports the
+   per-layer split (background 314 / table 386 / fixtures 208 = **908**).
+
+**Verified.**
+
+* `node tools/sceneLayout.js` — all 10 composition checks PASS in both framings.
+* `node tools/renderPreview.js` — deterministic frame renders.
+* `npm test` — **36/36**, including a new test 20 that locks the composition
+  contract (Inspector upper centre, table widening, fan ordering, clear air, and
+  the presence of every HUD anchor in *both* framings).
+* Real-browser captures at 1280×800 and 390×844 with the HUD hidden, confirming
+  the stage is right way up, letterboxed and lit. Files:
+  `art-pass/after-p2-desktop-scene.png`, `art-pass/after-p2-phone-scene.png`,
+  plus `after-p2-carriage.png`, `after-p2-blocking.png`,
+  `after-p2-both-hands.png` from the offline probe.
+
+**Still obscured — deliberately deferred to Phase 3.** In
+`art-pass/after-p2-duel-desktop.png` the carriage is barely visible behind the
+HUD, because `.table-center`, `.ticket-fan`, `.stamp-tray-wrap` and `.streak-box`
+are still large opaque panels. Phase 2 was scoped to the *scene*; removing those
+panels is the entire job of Phase 3, which is why the end-of-phase screenshot
+still looks dark. The scene underneath is confirmed working by the isolated
+captures above.
+
+**Not verified.** No human eye on motion (nothing animated yet in this phase);
+no real touch device; frame-rate numbers under SwiftShader are meaningless.

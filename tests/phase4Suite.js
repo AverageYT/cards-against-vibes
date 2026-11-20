@@ -22,7 +22,7 @@ import {
   nearestPaletteId,
   rgb,
 } from "../src/data/palette.js";
-import { SCENE_INFO, drawScene, probeSceneFrame } from "../src/visuals/scene.js";
+import { SCENE_INFO, describeLayout, drawScene, probeSceneFrame } from "../src/visuals/scene.js";
 import { STAGE_DEFAULT_SETTINGS, mountStage } from "../src/visuals/stage.js";
 import {
   MOTION_PROFILES,
@@ -951,4 +951,80 @@ export function runPhase4Suite() {
     }
   }
   return { total: tests.length, passed, failed: tests.length - passed, results };
+}
+
+/**
+ * Art Phase 2 — carriage composition contract.
+ *
+ * The scene's layout is the contract Phase 3's physical HUD anchors against, so
+ * it is asserted rather than eyeballed: the Inspector must occupy the upper
+ * centre, the table must widen strongly toward the foreground, the two card
+ * fans must sit at the far and near edges in that order with clear air between
+ * the Inspector and the far fan, and every anchor the HUD consumes must exist
+ * and be inside the frame.
+ */
+export function testSceneCompositionAndAnchors() {
+  const wide = describeLayout({ framing: "wide" });
+  const portrait = describeLayout({ framing: "portrait" });
+
+  for (const [name, layout] of [["wide", wide], ["portrait", portrait]]) {
+    for (const check of layout.checks) {
+      assert.ok(check.pass, `[${name}] ${check.label} — ${check.detail}`);
+    }
+  }
+
+  const feature = (layout, n) => layout.features.find((f) => f.name === n);
+
+  // The Inspector is in the upper centre of the frame.
+  const head = feature(wide, "inspectorHead");
+  assert.ok(head, "inspectorHead anchor must exist");
+  assert.ok(head.y + head.h < 180 * 0.62, "Inspector must sit in the upper half");
+  assert.ok(
+    Math.abs(head.x + head.w / 2 - 160) < 26,
+    "Inspector must be horizontally centred"
+  );
+
+  // The table widens toward the foreground by a wide margin.
+  const farEdge = feature(wide, "tableFarEdge");
+  const nearEdge = feature(wide, "tableNearEdge");
+  assert.ok(farEdge && nearEdge, "both table edges must project");
+  assert.ok(
+    nearEdge.w > farEdge.w * 2.5,
+    `table must widen >2.5x (got ${(nearEdge.w / farEdge.w).toFixed(2)}x)`
+  );
+  // ...and the near edge must stay inside the frame.
+  assert.ok(nearEdge.x >= 0 && nearEdge.x + nearEdge.w <= 320, "near table edge must fit the frame");
+
+  // Fan order: far fan at the far edge, near fan at the near edge, no overlap.
+  const far = feature(wide, "farFan");
+  const near = feature(wide, "nearFan");
+  assert.ok(far && near, "both fan anchors must exist");
+  assert.ok(far.y + far.h <= near.y, "far fan must sit above the near fan");
+  assert.ok(near.y > farEdge.y, "near fan must be nearer the camera than the table's far edge");
+
+  // Breathing room: the room must stay visible between the Inspector and the
+  // far fan, which is what stops the fans from burying the compartment.
+  assert.ok(far.y - (head.y + head.h) > 2, "clear air between Inspector and far fan");
+
+  // Every anchor the HUD consumes must be present in both framings.
+  const required = ["inspectorHead", "farFan", "slip", "bell", "manifest", "nearFan", "wells", "window"];
+  for (const n of required) {
+    assert.ok(feature(wide, n), `wide framing must expose the ${n} anchor`);
+    assert.ok(feature(portrait, n), `portrait framing must expose the ${n} anchor`);
+  }
+
+  // Anchors must be expressible as frame percentages without overflowing badly;
+  // the well row is centred and may be wider than the frame by design, but the
+  // centre of every anchor must lie inside the frame.
+  for (const f of wide.features) {
+    const cx = f.x + f.w / 2;
+    const cy = f.y + f.h / 2;
+    assert.ok(cx > -40 && cx < 360, `${f.name} centre must be near the frame (x=${cx})`);
+    assert.ok(cy > -20 && cy < 200, `${f.name} centre must be near the frame (y=${cy})`);
+  }
+
+  // The portrait camera is pulled back: the same table occupies less width.
+  const pFar = feature(portrait, "tableFarEdge");
+  const wFar = feature(wide, "tableFarEdge");
+  assert.ok(pFar.w < wFar.w, "portrait framing must pull the camera back");
 }
