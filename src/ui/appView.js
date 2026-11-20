@@ -991,6 +991,11 @@ export function mountAppView(controller, doc = document) {
     }
     if (zone) node.dataset.zone = zone;
     node.dataset.slot = String(slotIndex);
+    // Presentation layer reads these to swap in the procedural ticket art.
+    if (isFaceUp && ticketMeta) {
+      node.dataset.symbol = ticketMeta.isUnlisted ? "UNLISTED" : ticketMeta.symbolId || "";
+      node.dataset.emblem = ticketMeta.isEmblem ? "1" : "0";
+    }
     node.classList.add(isFaceUp ? "is-face-up" : "is-face-down");
     if (ticketMeta?.isUnlisted) node.classList.add("is-unlisted");
     if (isInteractive) node.classList.add("is-interactive");

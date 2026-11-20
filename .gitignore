@@ -1,0 +1,11 @@
+# Node
+node_modules/
+
+# Dev-only render output from tools/renderPreview.js (regenerate locally)
+tools/out/
+
+# Editor / OS
+.DS_Store
+
+# Generated art previews from tools/renderPreview.js (reproducible, never shipped)
+docs/art/

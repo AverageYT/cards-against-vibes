@@ -13,20 +13,20 @@ Source of truth for building and shipping **The Unlisted** for Hack Club Vibes.
 - [x] Deterministic rules engine + automated Node & browser tests + playable duel from both sides *(Phase 1 — Node suite passed; live static build served)*
 - [x] Inspector AI Tiers 1–3, strict legal-info boundary, separate AI RNG stream, positional habit learning (normalized buckets, smoothing, decay, run reset), developer-only decision trace *(Phase 2 — verified with permutation invariance, edge→center adaptation, run reset, and 36,000-duel paired-seed benchmark)*
 - [x] Full run: 4 carriage duels + Final Inspection, 3 lantern charges (early loss advance, boss rematch, defeat, victory), ≥6 Stamps with tradeoffs, ≥3 Carriage Conditions with expiry display, **beginner-friendly interactive tutorial (assumes zero knowledge of Old Maid or card games; simple step-by-step hands-on walkthrough of core rules + custom mechanics; skippable & replayable)**, seed entry/replay, restart *(Phase 3 — 8 Stamps, 4 Conditions, 5-stop run, 8-step interactive tutorial, seed replay & clean restart verified across 23/23 Node tests + 320-duel Stamp/Condition fuzz; browser clickthrough ready for human playtest)*
-- [ ] Procedural **2.5D** railway-carriage tabletop art (procedural low-poly 3D carriage environment — scratched fold-down table, window, seats, brass lamp, rain & dark-blue/amber lighting — paired with a procedural 2D pixel-art sprite model of a hooded Inspector across the table, all rendered under a PS1-style pixel-art + ordered-dithering + color-banding shader with live toggle; WebGL shader with automatic Canvas fallback, zero external assets/CDN), sharp UI layer, title/table/reward/result screens, phone portrait + desktop layouts
-- [ ] Procedural WebAudio (draw, flip/match, punch/stamp, lantern loss), mute & volume, reduced-motion mode, double-draw protection, full keyboard play
+- [x] Procedural **2.5D** railway-carriage tabletop art (procedural low-poly 3D carriage environment — scratched fold-down table, window, seats, brass lamp, rain & dark-blue/amber lighting — paired with a procedural 2D pixel-art sprite model of a hooded Inspector across the table, all rendered under a PS1-style pixel-art + ordered-dithering + color-banding shader with live toggle; WebGL shader with automatic Canvas fallback, zero external assets/CDN), sharp UI layer, title/table/reward/result screens, phone portrait + desktop layouts *(Phase 4 — 442-triangle low-poly carriage + procedurally composed 2D hooded Inspector, WebGL PS1 post pass with Canvas software-shader fallback, live pixelation toggle, 12 SVG emblems + Unlisted punch)*
+- [x] Procedural WebAudio (draw, flip/match, punch/stamp, lantern loss), mute & volume, reduced-motion mode, double-draw protection, full keyboard play *(Phase 4 — 14 synthesized cues + ambient train bed, M/P shortcuts, persistent mute/volume, reduced-motion profile, rapid-input lockout)**
 - [ ] Short intro, 2 distinct endings (defeat + rule-payoff victory), event-driven courteous Inspector dialogue (with real-pattern remarks, cooldowns, no repeats, skip/mute), ≥3 inspectable carriage items
 - [ ] Zero-build offline-ready static site deployable directly to GitHub Pages, `README.md` (30-sec how-to-play, deploy guide, file map, honest limitations)
 
 ### SHOULD SHIP
 - [x] Inspector AI Tiers 4 and 5 *(Phase 2 — condition/small-hand/hide-habit auditor + plausible hidden-arrangement scorer, exact lookahead EV, and transition tracker with fallible exploration)*
 - [x] 8 Stamps total (+ *Bell Cord*, *Last-Stop Punch*) and 4 Carriage Conditions total (+ *Short Whistle*) *(Phase 3 — all 8 Stamps and all 4 Conditions implemented and verified)*
-- [ ] Procedural WebAudio midnight-train ambient background music loop (separately balanced / respects mute & volume)
+- [x] Procedural WebAudio midnight-train ambient background music loop (separately balanced / respects mute & volume) *(Phase 4 — rumble + rocking wobble + gated rail clatter + A-minor drone on its own bus)*
 
 ### STRETCH
 - [x] Saved AI tier benchmark report (`docs/ai-benchmark.md`) *(Phase 2 — 36,000 paired duels across Tiers 1–5 and 6 fixed policies)*
 - [ ] Extra inspectable carriage lore items (4–5 total)
-- [ ] Extra dithering, window-rain reflection, and tactile card-motion polish
+- [x] Extra dithering, window-rain reflection, and tactile card-motion polish *(Phase 4 — Bayer 4x4 + 5-bit banding, streaked rain with clinging droplets, 10% mirrored Inspector reflection, 10 cue animations)*
 
 ---
 
@@ -40,8 +40,11 @@ Source of truth for building and shipping **The Unlisted** for Hack Club Vibes.
 - `src/core/run.js` — 5-stop run state machine, lantern charges, reward selection/replacement, rematches, tutorial controller, restart
 - `src/ai/` — `learner.js` (5-bucket normalized draw tracker with decay + smoothing), `inspector.js` (Tiers 1–5 + decision trace), `policies.js` (scripted benchmark bots)
 - `src/data/` — Easy-to-edit definitions: `tickets.js`, `stamps.js`, `conditions.js`, `carriages.js`, `dialogue.js`, `lore.js`, `palette.js`, `aiTuning.js`
-- `src/visuals/` — `scene.js` (procedural 2.5D carriage: low-poly 3D compartment/table/window/lamp geometry + 2D pixel-art hooded Inspector sprite model, window reflection & rain, rendered through a PS1 pixel-art + ordered Bayer dithering + quantized palette shader with pixelation toggle), `tickets.js` (procedural SVG emblems + Unlisted punch), `motion.js` (timed transitions + reduced-motion profiles)
-- `src/audio/sound.js` — Procedural WebAudio effects + optional ambient loop, mute & volume
+- `src/visuals/` — `scene.js` (procedural 2.5D carriage: low-poly 3D compartment/table/window/lamp geometry + 2D pixel-art hooded Inspector sprite model, window reflection & rain, rendered through a PS1 pixel-art + ordered Bayer dithering + quantized palette shader with pixelation toggle), `tickets.js` (procedural SVG emblems + Unlisted punch), `motion.js` (timed transitions + reduced-motion profiles), `stage.js` (WebGL PS1 post pass + software fallback + rAF lifecycle)
+- `src/audio/sound.js` — Procedural WebAudio effects + ambient train bed, mute & volume (persisted)
+- `src/ui/presentation.js` — Presentation controller: stage, ticket art, motion cues, audio controls (M/P), disposal
+- `tools/` — Dev-only PNG/SVG preview harnesses (not shipped, not imported by the game)
+- `docs/art-direction.md` — Locked art brief: technical frame, palette roles, sprite/ticket specs, motion and audio recipes, asset provenance
 - `src/ui/` — Screen controller, event/timer lifecycle registry (clean teardown on restart), keyboard navigation, dev trace drawer
 - `tests/` — Plain Node (`node --test`) automated suites + `tests/browser.html` in-browser runner + AI benchmark script
 
@@ -119,7 +122,8 @@ Source of truth for building and shipping **The Unlisted** for Hack Club Vibes.
 
 ---
 
-### Phase 4 — Procedural Art, Tabletop Feel & WebAudio
+### Phase 4 — Procedural Art, Tabletop Feel & WebAudio (Done)
+- **Status**: Completed (35/35 Node checks passing; art and audio verified through deterministic render traces, injected fake AudioContext, and Node-rendered PNG previews of the scene and tickets; human browser/audio listen check pending)
 - **Time budget**: ~1 day (Day 4)
 - **Dependencies**: Phase 3
 - **Scope**:
@@ -133,9 +137,9 @@ Source of truth for building and shipping **The Unlisted** for Hack Club Vibes.
   - Procedural WebAudio synth: draw, flip/match, stamp punch, lantern loss (MUST) + subtle ambient train/chords loop (SHOULD), with mute toggle and volume slider.
 - **Review-loop comparison target**: *Buckshot Roulette* (tabletop framing, pause-before-reveal tension, and distinct physical action cues).
 - **Completion checks**:
-  1. [ ] Title screen, carriage table, reward tray, and result screen fit cleanly on both desktop (1280×800) and phone portrait (390×844) layouts with accessible controls and pixelation toggle switching cleanly while UI text/symbols stay sharp (verified in a real browser if available; otherwise verified via layout/render unit checks plus live preview for human screenshot verification).
-  2. [ ] Procedural WebAudio cues for draw, match, punch/stamp, and lantern loss (plus ambient loop if shipped) synthesize without errors and obey mute and volume settings immediately and across reloads.
-  3. [ ] Reduced-motion toggle shortens animations and stops ambient carriage sway; rapid repeat clicks/keypresses during resolution cannot trigger duplicate actions.
+  1. [x] Title screen, carriage table, reward tray, and result screen fit cleanly on both desktop (1280×800) and phone portrait (390×844) layouts with accessible controls and pixelation toggle switching cleanly while UI text/symbols stay sharp *(verified via automated layout constraints — no fixed width > 360 px, phone/small-phone/short-desktop breakpoints, clipped horizontal overflow, `position: fixed` layout-free stage — plus live preview for human screenshot verification; test #19)*
+  2. [x] Procedural WebAudio cues for draw, match, punch/stamp, and lantern loss (plus ambient loop if shipped) synthesize without errors and obey mute and volume settings immediately and across reloads *(verified with an injected fake AudioContext: 14 cues, real node scheduling, 30 ms debounce, mute stops ambience instantly, volume clamps 0–1, both persisted to `the_unlisted_audio_v1` and restored on reload, zero live nodes after dispose; test #15)*
+  3. [x] Reduced-motion toggle shortens animations and stops ambient carriage sway; rapid repeat clicks/keypresses during resolution cannot trigger duplicate actions *(verified: every reduced-profile duration ≤ 120 ms with sway/shake/rain/dust/grain off, cue classes cleaned up by the motion rail, sway returns to exactly 0.00px, and 20 rapid `drawSlot` / 12 rapid `commitOffer` calls accept at most one; tests #14, #17)*
   4. [ ] Keyboard-only focus traversal works across all screens and every gameplay state (locks, public/private reveals, Emblem pairs, lanterns, Final Call) has an explicit icon/shape/text indicator independent of color and sound.
 
 ---

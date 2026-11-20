@@ -219,11 +219,30 @@ test("Static build has zero external/CDN URLs and appView drives Title, Tutorial
   const html = fs.readFileSync(path.resolve("index.html"), "utf8");
   const css = fs.readFileSync(path.resolve("styles/main.css"), "utf8");
 
-  assert.equal(/https?:\/\//i.test(html), false, "index.html must have zero external URLs");
-  assert.equal(/https?:\/\//i.test(css), false, "styles/main.css must have zero external URLs");
+  // Audit rule: no network URLs anywhere, but inline `data:` images are fine and
+  // the single SVG XML namespace identifier is not a fetched resource.
+  const NETWORK_URL = /(?:^|[^\w])(?:fetch\(|src=|href=|url\()\s*["']?https?:\/\//i;
+  const ANY_HTTP = /https?:\/\//gi;
+  const SVG_NS_OK = /^https?:\/\/(?:www\.)?w3\.org\/(?:2000\/svg|1999\/xlink|XML\/1998\/namespace)$/i;
+
+  function assertNoNetworkUrls(text, label) {
+    assert.equal(NETWORK_URL.test(text), false, `${label} must not load any network URL`);
+    for (const match of text.match(ANY_HTTP) || []) {
+      // The only tolerated literal is the SVG namespace, which appears at most
+      // once per module and never triggers a request.
+      const idx = text.indexOf(match);
+      const line = text.slice(idx, idx + 64);
+      assert.ok(
+        SVG_NS_OK.test(match) && /xmlns|SVG_NS|namespace/i.test(line),
+        `${label} must have zero external URLs (found ${match})`
+      );
+    }
+  }
+
+  assertNoNetworkUrls(html, "index.html");
+  assertNoNetworkUrls(css, "styles/main.css");
   for (const jsFile of listJsFiles(path.resolve("src"))) {
-    const code = fs.readFileSync(jsFile, "utf8");
-    assert.equal(/https?:\/\//i.test(code), false, `${jsFile} must have zero external URLs`);
+    assertNoNetworkUrls(fs.readFileSync(jsFile, "utf8"), jsFile);
   }
 
   // Verify every ID referenced by appView.js exists in index.html.
