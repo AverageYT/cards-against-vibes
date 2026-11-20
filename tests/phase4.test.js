@@ -16,6 +16,7 @@ import {
   testProceduralTicketArt,
   testSceneRendersDeterministicFrame,
   testSceneCompositionAndAnchors,
+  testHudToggleIsViewOnlyAndRecoverable,
   testStageSoftwareFallbackAndToggle,
 } from "./phase4Suite.js";
 
@@ -61,4 +62,8 @@ test("19. Desktop 1280x800 and phone portrait 390x844 layouts cannot overflow; t
 
 test("20. Carriage composition: Inspector upper-centre, table widens toward the foreground, fans at the far and near edges, every HUD anchor present in both framings", () => {
   testSceneCompositionAndAnchors();
+});
+
+test("21. Dev HUD toggle is a view switch: the stage is excluded from hiding, the restore chip is reachable, focus returns, and core state never reads it", () => {
+  testHudToggleIsViewOnlyAndRecoverable();
 });

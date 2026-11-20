@@ -38,13 +38,17 @@ function moodForScreen(screen) {
 }
 
 function readPrefs(storage) {
-  const fallback = { pixelation: true };
+  const fallback = { pixelation: true, showHud: true };
   if (!storage) return fallback;
   try {
     const raw = storage.getItem(PREFS_KEY);
     if (!raw) return fallback;
     const parsed = JSON.parse(raw);
-    return { pixelation: parsed.pixelation !== false };
+    return {
+      pixelation: parsed.pixelation !== false,
+      // HUD visibility is a look-at-the-room aid, so it defaults to on.
+      showHud: parsed.showHud !== false,
+    };
   } catch {
     return fallback;
   }
@@ -83,6 +87,7 @@ export function mountPresentation({
   let muted = false;
   let volume = 0.7;
   let pixelation = prefs.pixelation !== false;
+  let showHud = prefs.showHud !== false;
   let reducedMotion = false;
   let stage = null;
   let lastView = null;
@@ -144,6 +149,8 @@ export function mountPresentation({
     volumeSlider: doc.getElementById("volume-slider"),
     pixelationToggle: doc.getElementById("pixelation-toggle"),
     reducedMotionToggle: doc.getElementById("reduced-motion-toggle"),
+    hudToggle: doc.getElementById("hud-toggle"),
+    hudRestore: doc.getElementById("hud-restore"),
     titleEmblemRow: doc.getElementById("title-emblem-row"),
   };
 
@@ -178,6 +185,9 @@ export function mountPresentation({
 
   publishSceneAnchors();
 
+  // Reflect the saved HUD preference on first paint. No DOM write beyond the
+  // class/attributes: the stored value already matches, so nothing is saved.
+  applyHudVisibility(showHud, { persist: false });
 
   function setPressed(node, pressed) {
     if (!node) return;
@@ -208,6 +218,32 @@ export function mountPresentation({
         "aria-label",
         pixelation ? "Pixelation on: turn off" : "Pixelation off: turn on"
       );
+    }
+  }
+
+  /**
+   * Show or hide the HUD so the carriage can be inspected on its own.
+   *
+   * This is a *view* switch only: the DOM stays mounted, keeps every live value
+   * and keeps its focus order, so hiding the HUD cannot change game state, drop
+   * a running animation, or strand keyboard focus on nothing. When hidden, the
+   * HUD is made `inert`-like by also removing it from hit-testing, and a small
+   * always-visible chip tells the player how to bring it back.
+   */
+  function applyHudVisibility(next, opts = {}) {
+    showHud = Boolean(next);
+    prefs.showHud = showHud;
+    if (opts.persist !== false) writePrefs(storage, prefs);
+    if (dom.app) dom.app.classList.toggle("is-hud-hidden", !showHud);
+    if (dom.hudToggle) {
+      setPressed(dom.hudToggle, !showHud);
+      dom.hudToggle.setAttribute("aria-expanded", showHud ? "false" : "true");
+    }
+    if (dom.hudRestore) {
+      if (typeof dom.hudRestore.setAttribute === "function") {
+        dom.hudRestore.setAttribute("aria-hidden", showHud ? "true" : "false");
+        dom.hudRestore.tabIndex = showHud ? -1 : 0;
+      }
     }
   }
 
@@ -246,12 +282,23 @@ export function mountPresentation({
     syncAudioControls();
   });
 
+  listen(dom.hudToggle, "click", () => {
+    applyHudVisibility(!showHud);
+  });
+
+  listen(dom.hudRestore, "click", () => {
+    applyHudVisibility(true);
+    // Return focus to the control that toggles it rather than dumping the
+    // keyboard user at the top of the document.
+    if (dom.hudToggle && typeof dom.hudToggle.focus === "function") dom.hudToggle.focus();
+  });
+
   listen(dom.reducedMotionToggle, "change", () => {
     // The controller owns the flag; we mirror it on the next render.
     controller.setReducedMotion(dom.reducedMotionToggle.checked);
   });
 
-  // Keyboard shortcuts: M mute, P pixelation.
+  // Keyboard shortcuts: M mute, P pixelation, H hide/show the HUD.
   listen(doc, "keydown", (ev) => {
     if (!ev || ev.ctrlKey || ev.metaKey || ev.altKey) return;
     const target = ev.target;
@@ -261,6 +308,9 @@ export function mountPresentation({
       unlockAudio();
       sound.setMuted(!sound.prefs.muted);
       syncAudioControls();
+      if (!ev.defaultPrevented) ev.preventDefault();
+    } else if (ev.key === "h" || ev.key === "H") {
+      applyHudVisibility(!showHud);
       if (!ev.defaultPrevented) ev.preventDefault();
     } else if (ev.key === "p" || ev.key === "P") {
       pixelation = !pixelation;
@@ -479,6 +529,17 @@ export function mountPresentation({
     },
     getPixelation() {
       return pixelation;
+    },
+    /**
+     * Exposed for the QA harness and for anything that wants to reveal the
+     * carriage. `persist: false` previews without overwriting the player's
+     * saved preference.
+     */
+    setHudVisible(on, opts) {
+      applyHudVisibility(Boolean(on), opts || {});
+    },
+    getHudVisible() {
+      return showHud;
     },
     dispose() {
       unsubscribe();

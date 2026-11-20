@@ -515,3 +515,33 @@ captures above.
 
 **Not verified.** No human eye on motion (nothing animated yet in this phase);
 no real touch device; frame-rate numbers under SwiftShader are meaningless.
+
+#### 5.1.1 Dev toggle: inspect the carriage without the HUD
+
+Phase 2's scene is correct but invisible behind the still-opaque HUD, so review
+needs a way to see it. `HUD` in the top bar (or <kbd>H</kbd>) hides the
+interface; a `Show HUD` chip stays in the bottom-right while it is hidden.
+
+It is a **view switch, not a game state change**:
+
+* the HUD is faded and removed from hit-testing, but the DOM stays mounted, so
+  every value stays live and no animation is interrupted;
+* `#app` is *not* hidden — only its children minus the stage — because the stage
+  is a fixed `z-index: -2` layer inside `#app`; hiding the parent would hide the
+  scene too (this is the bug the CSS comment guards against);
+* the restore chip sits outside the hidden region, becomes `tabindex=0` when
+  needed, and clicking it returns focus to the toggle;
+* the preference persists in `the_unlisted_presentation_v1` beside `pixelation`;
+* nothing in `src/core/` reads it, and test 21 fails the build if that changes.
+
+Exposed as `setHudVisible(on, { persist })` on the presentation object for the QA
+harness — `persist: false` previews a state without overwriting the player's
+choice.
+
+**Bug found while verifying:** the saved preference was written but never
+applied on reload, because the initial call had been injected into the
+pixelation click handler instead of the mount scope. Fixed and re-verified
+against a real reload: the HUD now stays hidden across page loads.
+
+Captures: `art-pass/after-p2-hud-hidden-desktop.png`,
+`art-pass/after-p2-hud-hidden-phone.png`.
