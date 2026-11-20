@@ -68,12 +68,13 @@
   <body>
     <h1>The Unlisted — Browser Test Runner</h1>
     <p><a href="../index.html">← Back to game</a></p>
-    <div id="summary" class="summary">Running Phase 1 + Phase 2 suites…</div>
+    <div id="summary" class="summary">Running Phase 1 + Phase 2 + Phase 3 suites…</div>
     <div id="sections"></div>
 
     <script type="module">
       import { runPhase1Suite } from "./phase1Suite.js";
       import { runPhase2Suite } from "./phase2Suite.js";
+      import { runPhase3Suite } from "./phase3Suite.js";
 
       const summaryEl = document.getElementById("summary");
       const sectionsEl = document.getElementById("sections");
@@ -81,6 +82,7 @@
       const suites = [
         { label: "Phase 1 — Core Mechanics & Replay", report: runPhase1Suite() },
         { label: "Phase 2 — Inspector AI, Learning & Info Barrier", report: runPhase2Suite() },
+        { label: "Phase 3 — 5-Stop Run, 8 Stamps, 4 Conditions & Tutorial", report: runPhase3Suite() },
       ];
 
       const total = suites.reduce((acc, s) => acc + s.report.total, 0);

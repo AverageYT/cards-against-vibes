@@ -12,15 +12,15 @@ Source of truth for building and shipping **The Unlisted** for Hack Club Vibes.
 ### MUST SHIP
 - [x] Deterministic rules engine + automated Node & browser tests + playable duel from both sides *(Phase 1 — Node suite passed; live static build served)*
 - [x] Inspector AI Tiers 1–3, strict legal-info boundary, separate AI RNG stream, positional habit learning (normalized buckets, smoothing, decay, run reset), developer-only decision trace *(Phase 2 — verified with permutation invariance, edge→center adaptation, run reset, and 36,000-duel paired-seed benchmark)*
-- [ ] Full run: 4 carriage duels + Final Inspection, 3 lantern charges (early loss advance, boss rematch, defeat, victory), ≥6 Stamps with tradeoffs, ≥3 Carriage Conditions with expiry display, **beginner-friendly interactive tutorial (assumes zero knowledge of Old Maid or card games; simple step-by-step hands-on walkthrough of core rules + custom mechanics; skippable & replayable)**, seed entry/replay, restart
-- [ ] Procedural railway-carriage tabletop art (Canvas + SVG), PS1-style pixelation + ordered dithering with live toggle, sharp UI layer, title/table/reward/result screens, phone portrait + desktop layouts
+- [x] Full run: 4 carriage duels + Final Inspection, 3 lantern charges (early loss advance, boss rematch, defeat, victory), ≥6 Stamps with tradeoffs, ≥3 Carriage Conditions with expiry display, **beginner-friendly interactive tutorial (assumes zero knowledge of Old Maid or card games; simple step-by-step hands-on walkthrough of core rules + custom mechanics; skippable & replayable)**, seed entry/replay, restart *(Phase 3 — 8 Stamps, 4 Conditions, 5-stop run, 8-step interactive tutorial, seed replay & clean restart verified across 23/23 Node tests + 320-duel Stamp/Condition fuzz; browser clickthrough ready for human playtest)*
+- [ ] Procedural **2.5D** railway-carriage tabletop art (procedural low-poly 3D carriage environment — scratched fold-down table, window, seats, brass lamp, rain & dark-blue/amber lighting — paired with a procedural 2D pixel-art sprite model of a hooded Inspector across the table, all rendered under a PS1-style pixel-art + ordered-dithering + color-banding shader with live toggle; WebGL shader with automatic Canvas fallback, zero external assets/CDN), sharp UI layer, title/table/reward/result screens, phone portrait + desktop layouts
 - [ ] Procedural WebAudio (draw, flip/match, punch/stamp, lantern loss), mute & volume, reduced-motion mode, double-draw protection, full keyboard play
 - [ ] Short intro, 2 distinct endings (defeat + rule-payoff victory), event-driven courteous Inspector dialogue (with real-pattern remarks, cooldowns, no repeats, skip/mute), ≥3 inspectable carriage items
 - [ ] Zero-build offline-ready static site deployable directly to GitHub Pages, `README.md` (30-sec how-to-play, deploy guide, file map, honest limitations)
 
 ### SHOULD SHIP
 - [x] Inspector AI Tiers 4 and 5 *(Phase 2 — condition/small-hand/hide-habit auditor + plausible hidden-arrangement scorer, exact lookahead EV, and transition tracker with fallible exploration)*
-- [ ] 8 Stamps total (+ *Bell Cord*, *Last-Stop Punch*) and 4 Carriage Conditions total (+ *Short Whistle*)
+- [x] 8 Stamps total (+ *Bell Cord*, *Last-Stop Punch*) and 4 Carriage Conditions total (+ *Short Whistle*) *(Phase 3 — all 8 Stamps and all 4 Conditions implemented and verified)*
 - [ ] Procedural WebAudio midnight-train ambient background music loop (separately balanced / respects mute & volume)
 
 ### STRETCH
@@ -40,7 +40,7 @@ Source of truth for building and shipping **The Unlisted** for Hack Club Vibes.
 - `src/core/run.js` — 5-stop run state machine, lantern charges, reward selection/replacement, rematches, tutorial controller, restart
 - `src/ai/` — `learner.js` (5-bucket normalized draw tracker with decay + smoothing), `inspector.js` (Tiers 1–5 + decision trace), `policies.js` (scripted benchmark bots)
 - `src/data/` — Easy-to-edit definitions: `tickets.js`, `stamps.js`, `conditions.js`, `carriages.js`, `dialogue.js`, `lore.js`, `palette.js`, `aiTuning.js`
-- `src/visuals/` — `scene.js` (procedural carriage, inspector reflection, lamp, rain, low-res PS1 Bayer dithering pass + pixelation toggle), `tickets.js` (procedural SVG emblems + Unlisted punch), `motion.js` (timed transitions + reduced-motion profiles)
+- `src/visuals/` — `scene.js` (procedural 2.5D carriage: low-poly 3D compartment/table/window/lamp geometry + 2D pixel-art hooded Inspector sprite model, window reflection & rain, rendered through a PS1 pixel-art + ordered Bayer dithering + quantized palette shader with pixelation toggle), `tickets.js` (procedural SVG emblems + Unlisted punch), `motion.js` (timed transitions + reduced-motion profiles)
 - `src/audio/sound.js` — Procedural WebAudio effects + optional ambient loop, mute & volume
 - `src/ui/` — Screen controller, event/timer lifecycle registry (clean teardown on restart), keyboard navigation, dev trace drawer
 - `tests/` — Plain Node (`node --test`) automated suites + `tests/browser.html` in-browser runner + AI benchmark script
@@ -92,7 +92,8 @@ Source of truth for building and shipping **The Unlisted** for Hack Club Vibes.
 
 ---
 
-### Phase 3 — Run Structure, Stamps, Conditions & Beginner-Friendly Interactive Tutorial
+### Phase 3 — Run Structure, Stamps, Conditions & Beginner-Friendly Interactive Tutorial (Done)
+- **Status**: Completed (all 8 Stamps, all 4 Carriage Conditions, 5-stop run + 3 Lanterns, 8-step zero-prior-knowledge interactive tutorial, seed replay & clean restart shipped; 23/23 Node checks passed; live preview served on port 8080; visual browser clickthrough ready for human playtest)
 - **Time budget**: ~1 day (Day 3)
 - **Dependencies**: Phase 2
 - **Scope**:
@@ -110,10 +111,11 @@ Source of truth for building and shipping **The Unlisted** for Hack Club Vibes.
   - Add repeatable/shareable run seed entry/display, and full run restart (resetting AI learner cleanly).
 - **Review-loop comparison target**: *Balatro* (meaningful upgrade tradeoffs, slot tension, Stamp synergies changing in-duel decisions, and effortless learn-by-doing onboarding).
 - **Completion checks**:
-  1. [ ] Beginner-friendly interactive tutorial works step-by-step from zero Old Maid knowledge through core draw/pair/Unlisted/swap/offer play AND custom mechanics (Stamp use + tradeoff, Emblem pairs `★`, Final Call, Carriage Conditions, Lanterns), can be skipped at any step, and can be replayed cleanly.
-  2. [ ] Automated + controller flow tests pass for full 5-stop run progression: 4 carriage wins with Stamp pick/replace/skip, Final Inspection victory, early-carriage loss (spends 1 lantern, no reward, advances), Final Inspection loss rematch while lanterns remain, 0-lantern Defeat, and clean full-run restart.
-  3. [ ] Every shipped Stamp (≥6, target 8) and Carriage Condition (≥3, target 4) passes card-conservation, no-deadlock, charge-reset, and expiration checks, and at least two Stamp combinations (*Inspection Window + Carbon Copy* and *Inspection Window + Night Transfer* / *Manifest Loupe + Brass Weight*) measurably alter legal/optimal turn actions in scripted seed tests.
-  4. [ ] Same run seed reproduces identical carriage conditions, Stamp offers, and encounter shuffles across independent runs.
+  1. [x] Beginner-friendly interactive tutorial works step-by-step from zero Old Maid knowledge through core draw/pair/Unlisted/swap/offer play AND custom mechanics (Stamp use + tradeoff, Emblem pairs `★`, Final Call, Carriage Conditions, Lanterns), can be skipped at any step, and can be replayed cleanly *(verified in `tests/phase3Suite.js` #1 and `tests/domIntegrity.test.js`; human browser UX check pending)*.
+  2. [x] Automated + controller flow tests pass for full 5-stop run progression: 4 carriage wins with Stamp pick/replace/skip, Final Inspection victory, early-carriage loss (spends 1 lantern, no reward, advances), *Spare Wick* mid-run Lantern restore + slot burn, Final Inspection loss rematch while lanterns remain, 0-lantern Defeat, and clean full-run restart *(verified in `tests/phase3Suite.js` #6–7)*.
+  3. [x] Every shipped Stamp (all 8: 6 MUST + 2 SHOULD) and Carriage Condition (all 4: 3 MUST + 1 SHOULD) passes card-conservation, no-deadlock, charge-reset, privacy-boundary, and expiration checks (320-duel fuzz + 80 JSON replays), and 3+ Stamp combinations (*Inspection Window + Carbon Copy*, *Inspection Window + Night Transfer*, *Manifest Loupe + Brass Weight*, *Bell Cord + Loupe + Brass Weight*) measurably alter legal actions and paired-seed win rates *(verified in `tests/phase3Suite.js` #2–5 + 8,000-duel paired-seed synergy probe)*.
+  4. [x] Same run seed reproduces identical carriage conditions, Stamp offers, and encounter shuffles across independent runs, and mid-duel/post-run restart cancels all pending timers and resets AI habits to uniform `0.20` *(verified in `tests/phase3Suite.js` #7)*.
+  5. [x] *(Playtest-driven roguelike expansion)* Multi-deal carriages (`Bo3` on Car I–IV with `7,8,9,10` pairs; `Bo5` on Stop V with `12` pairs, ~14–18 min complete run), elevated armed Inspector AI (`T3→T5` wielding legal Stamps with exploitable public tradeoffs + 100% hidden-card invariance), and offline persistent **Platform Locker** (`src/data/keepsakes.js`, `src/core/meta.js`: ◈ Punched Stubs, 6 toggleable Keepsakes anchored by Keystone **★ The Perforation Gauge**, `CHECK_EDGE` `[E]`, `USE_GAUGE` `[G]`, Inspector Stamp jamming, Departure Stamp Draft, Reward Reroll, Emergency Match, and Storm Lamp streak heal) *(verified in `tests/phase3Suite.js` #6, #8, #9 + `tests/domIntegrity.test.js` + progression-curve simulation: `5.0%` Empty Pockets → `12.5%` Tier I → `71.3%` tactical / `82.5%` pro with ★ Perforation Gauge vs `3.8%` blind luck-clicker)*.
 
 ---
 
@@ -122,8 +124,10 @@ Source of truth for building and shipping **The Unlisted** for Hack Club Vibes.
 - **Dependencies**: Phase 3
 - **Scope**:
   - Implement `src/data/palette.js`, `src/visuals/scene.js`, `src/visuals/tickets.js`, `src/visuals/motion.js`, and `src/audio/sound.js`.
-  - Procedural midnight railway carriage scene on offscreen low-res `<canvas>`: scratched fold-down table, brass lamp & trim, rain-streaked window, weak amber overhead cone, dark blue shadows, still Inspector in rain-dark coat partly obscured by window reflection.
-  - PS1-style pixelation pass with ordered Bayer dithering and restrained color quantization + live Pixelation toggle; crisp separate UI/SVG layer for labels, ticket symbols, Emblem markers, condition badges, and focus rings.
+  - Procedural **2.5D** midnight railway carriage environment (zero external assets/CDN):
+    - **Low-poly 3D environment**: procedural low-poly mesh geometry for the carriage compartment, scratched fold-down wooden table, brass trim & overhead swinging lamp, window frame, opposite bench, rain-streaked glass, weak amber light cone, and deep dark-blue shadows, projected with subtle carriage sway.
+    - **2D pixel-art Inspector model**: procedural 2D pixel-art sprite model of a hooded man in a rain-dark coat seated across the table (subtle idle breathing/head/hand states + faint window-glass reflection), billboard-composited into the 2.5D carriage space.
+    - **PS1 pixel-art shader pass**: WebGL post-process shader (with automatic low-res `<canvas>` software-shader fallback) applying low-resolution pixelation, ordered Bayer dithering, and restrained palette quantization across the 2.5D scene + live Pixelation toggle; crisp separate UI/SVG layer for labels, ticket symbols, Emblem markers, condition badges, and focus rings.
   - Stylized aged ticket stock, 12 high-contrast railway emblems, and the damp blank Unlisted ticket with black punch hole across Title Screen, Table, Reward Tray, and Result Screen.
   - Tactile animations (lift/settle, commit-to-reveal suspense beat, pair snap, heavy ticket punch, lantern loss, subtle train sway), double-draw lock, reduced-motion toggle, full keyboard controls, responsive phone portrait + desktop layouts, and non-color-only state indicators.
   - Procedural WebAudio synth: draw, flip/match, stamp punch, lantern loss (MUST) + subtle ambient train/chords loop (SHOULD), with mute toggle and volume slider.

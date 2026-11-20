@@ -1,55 +1,94 @@
 /**
  * src/main.js
- * Browser entry point for The Unlisted.
+ * Browser entry point for The Unlisted (5-stop multi-deal run, Platform Locker
+ * meta-progression, and interactive beginner tutorial).
  */
 
-import { STARTING_MODES, TIER_MODES, createDuelController } from "./ui/duelController.js";
-import { mountDuelView } from "./ui/duelView.js";
+import { createRunController } from "./core/run.js";
+import { mountAppView } from "./ui/appView.js";
 
-function readInitialOptionsFromUrl() {
+const TUTORIAL_STORAGE_KEY = "the_unlisted_tutorial_seen_v1";
+
+function getSafeStorage() {
+  try {
+    return window.localStorage || null;
+  } catch {
+    return null;
+  }
+}
+
+function readTutorialSeen(storage) {
+  if (!storage) return false;
+  try {
+    return storage.getItem(TUTORIAL_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveTutorialSeen(seen) {
+  const storage = getSafeStorage();
+  if (!storage) return;
+  try {
+    storage.setItem(TUTORIAL_STORAGE_KEY, seen ? "1" : "0");
+  } catch {
+    // Storage may be disabled in sandboxed/private mode; game still runs cleanly.
+  }
+}
+
+function readInitialOptions(storage) {
   try {
     const params = new URLSearchParams(window.location.search);
     const seed = params.get("seed");
-    const pairs = params.get("pairs");
-    const starter = params.get("starter");
-    const tier = params.get("tier");
     const dev = params.get("dev");
+    const autostart = params.get("start");
+    const tutorial = params.get("tutorial");
+    const locker = params.get("locker");
     const prefersReduced =
       typeof window.matchMedia === "function" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     return {
       seed: seed && seed.trim() ? seed.trim() : "LINE-1926",
-      pairCount: pairs ? Number.parseInt(pairs, 10) : 6,
-      startingMode:
-        starter && Object.values(STARTING_MODES).includes(starter)
-          ? starter
-          : STARTING_MODES.ALTERNATE,
-      tierMode: tier || TIER_MODES.RAMP,
       devTraceOpen: dev === "1" || dev === "true",
+      autoStartRun: autostart === "1" || autostart === "true",
+      autoStartTutorial: tutorial === "1" || tutorial === "true",
+      autoOpenLocker: locker === "1" || locker === "true",
       reducedMotion: prefersReduced,
+      tutorialCompleted: readTutorialSeen(storage),
     };
   } catch {
     return {
       seed: "LINE-1926",
-      pairCount: 6,
-      startingMode: STARTING_MODES.ALTERNATE,
-      tierMode: TIER_MODES.RAMP,
       devTraceOpen: false,
+      autoStartRun: false,
+      autoStartTutorial: false,
+      autoOpenLocker: false,
       reducedMotion: false,
+      tutorialCompleted: false,
     };
   }
 }
 
-const init = readInitialOptionsFromUrl();
-const controller = createDuelController({
+const storage = getSafeStorage();
+const init = readInitialOptions(storage);
+const controller = createRunController({
   initialSeed: init.seed,
-  initialPairCount: init.pairCount,
-  initialStartingMode: init.startingMode,
-  initialTierMode: init.tierMode,
-  devTraceOpen: init.devTraceOpen,
+  tutorialCompleted: init.tutorialCompleted,
   reducedMotion: init.reducedMotion,
+  devTraceOpen: init.devTraceOpen,
+  storage,
+  onTutorialSeen: saveTutorialSeen,
 });
 
-mountDuelView(controller, document);
-controller.startNewRun();
+mountAppView(controller, document);
+
+if (init.autoStartTutorial) {
+  controller.startTutorial({ seed: init.seed });
+} else if (init.autoStartRun) {
+  controller.startRun({ seed: init.seed, withTutorial: false });
+} else if (init.autoOpenLocker) {
+  controller.openLocker();
+} else {
+  controller.openTitle({ seed: init.seed });
+}

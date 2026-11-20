@@ -113,19 +113,21 @@ Any action submitted out of phase, by the inactive side, after `DUEL_OVER`, with
 
 ---
 
-## 7. Run Structure
+## 7. Run Structure & Platform Locker Progression
 
-A full run consists of **5 stops** (4 Carriages + Final Inspection):
+A full run consists of **5 multi-deal stops** (4 Carriages + Final Inspection, ~12–18 minutes for a complete run):
 
-| Stop | Encounter | Pairs (`P`) | Total Tickets | Carriage Condition | Target AI Tier |
-| --- | --- | :---: | :---: | --- | :---: |
-| 1 | Carriage I — Third-Class Coach | 6 | 13 | None (*Clear Line*) | Tier 1 |
-| 2 | Carriage II — Luggage Van | 7 | 15 | 1 seeded condition | Tier 2 |
-| 3 | Carriage III — Dining Car | 9 | 19 | 1 seeded condition | Tier 3 |
-| 4 | Carriage IV — Sleeper Corridor | 10 | 21 | 1 seeded condition | Tier 4 *(Tier 3 fallback)* |
-| 5 | Final Inspection — Guard's Brake | 12 | 25 | 1 seeded condition | Tier 5 *(Tier 3 fallback)* |
+| Stop | Encounter | Pairs (`P`) | Match Length | Carriage Condition | Inspector AI & Stamp Kit |
+| --- | --- | :---: | :---: | --- | --- |
+| 1 | Carriage I — Third-Class Coach | 7 (`15` cards) | First to `2` deals (Bo3) | None (*Clear Line*) | Tier 3 · *Inspection Window*, *Bell Cord* |
+| 2 | Carriage II — Luggage Van | 8 (`17` cards) | First to `2` deals (Bo3) | 1 seeded condition | Tier 4 · *Inspection Window*, *Manifest Loupe*, *Night Transfer* |
+| 3 | Carriage III — Dining Car | 9 (`19` cards) | First to `2` deals (Bo3) | 1 seeded condition | Tier 4 · *Inspection Window*, *Brass Weight*, *Carbon Copy* |
+| 4 | Carriage IV — Sleeper Corridor | 10 (`21` cards) | First to `2` deals (Bo3) | 1 seeded condition | Tier 5 · *Inspection Window*, *Manifest Loupe*, *Night Transfer* |
+| 5 | Final Inspection — Guard's Brake | 12 (`25` cards) | First to `3` deals (Bo5) | 1 seeded condition | Tier 5 · *Inspection Window*, *Manifest Loupe*, *Bell Cord* |
 
+- **Multi-Deal Matches**: Within each stop, first actor strictly alternates on every deal and all non-consumable Stamps and Locker Tools refresh at the start of every deal. Lanterns are resolved only when the full carriage match concludes.
 - **Lantern Charges**: Start with `3` charges (maximum `3`).
+- **Platform Locker (Between-Run Meta-Progression)**: Every completed run (victory or defeat) awards persistent offline **◈ Punched Stubs** (`1` per `2` player-matched pairs, `+1` per ★ Emblem pair, `+2` per deal won, `+4` per carriage cleared, `+18` Victory bonus; minimum `20 ◈` on first run) stored in `localStorage` (`the_unlisted_meta_v1`) to unlock 6 toggleable Keepsakes (`src/data/keepsakes.js`): Tier I *Weathered Stamp Case* (`20 ◈`) & *Thumb-Worn Tallow* (`25 ◈`, `CHECK_EDGE` `1/deal`), Tier II Keystone **★ *The Perforation Gauge*** (`60 ◈`, `USE_GAUGE` `1/deal` + jams `1` Inspector Stamp/stop + 3-choice Departure Stamp Draft), and Tier III *Smuggler's Carbon Folio* (`55 ◈`, `1` Reroll/tray), *Double-Wick Storm Lamp* (`70 ◈`, `1` Emergency Match/run + `+1` Lantern per 2-win carriage streak), & *Guard's Master Counter-Seal* (`90 ◈`, 2nd Inspector Stamp jam + `2/deal` Gauge).
 - **Winning Stops 1–4**: Keep current Lantern charges, visit the Stamp reward tray (choose 1 of 3 distinct unowned Stamps, replacing an existing Stamp if all 3 slots are full, or skip), inspect optional carriage lore, and advance to the next stop.
 - **Losing Stops 1–4**: Spend `1` Lantern charge and receive **no** Stamp reward. If `lanterns >= 1`, advance to the next stop. If `lanterns === 0`, the run ends (**Defeat Ending**).
 - **Final Inspection (Stop 5)**:
@@ -194,7 +196,7 @@ Conditions apply symmetrically to both sides, are explained on the carriage brie
     - `CENTER`: `0.40 <= u <= 0.60`
     - `RIGHT_MID`: `0.60 < u <= 0.80`
     - `RIGHT_EDGE`: `u > 0.80`
-  - Before recording a new observation, existing bucket counts are multiplied by decay factor `gamma` (default `0.82`), then the chosen bucket increments by `+1.0`. Bucket probabilities use symmetric Dirichlet smoothing (`alpha = 0.6` per bucket) so sparse early data stays close to uniform and habit changes naturally overtake stale patterns.
+  - Before recording a new observation, existing bucket counts are multiplied by decay factor `gamma` (default `0.80`, tuned in `src/data/aiTuning.js`), then the chosen bucket increments by `+1.0`. Bucket probabilities use symmetric Dirichlet smoothing (`alpha = 0.55` per bucket) so sparse early data stays close to uniform and habit changes naturally overtake stale patterns.
   - All learned counts reset to zero at the start of a new run.
 - **Reveal Memory**: Any ticket revealed to the Inspector (e.g., via *Drafty Window* or a player Stamp exposure penalty) is remembered only for the specific committed offer on which it was revealed and cleared immediately when that turn resolves.
 - **Tier Ramp**:
@@ -219,3 +221,6 @@ Conditions apply symmetrically to both sides, are explained on the carriage brie
 - **D8 — Overlapping public exposures & locks**: If two effects expose the same slot publicly on the same offer (e.g., *Drafty Window* and *Manifest Loupe* penalty both exposing `slot 0`), only that single slot is revealed. Publicly revealed slots remain legally drawable unless also locked by Final Call or *Brass Weight*. *Brass Weight* can never be activated if fewer than `2` drawable slots would remain.
 - **D9 — Stamp uniqueness & replacement**: A run never offers a Stamp the player already holds. With 3 full slots, taking a reward requires replacing one held Stamp; skipping is always legal. *Spare Wick* activates manually during the player's turn when `lanterns < 3` and does not auto-trigger after dropping to `0` lanterns.
 - **D10 — Late Schedule scaling on tiny post-deal hands**: If initial deal luck removes most pairs leaving `initialRemainingPairs <= 3`, *Late Schedule* lowers its unlock requirement to `max(1, initialRemainingPairs - 1)` so Stamps are never permanently locked for the entire duel unless only 1 pair survived the deal.
+- **D11 — Stamp edge-case resolution**: (a) Because *Brass Weight* is activated during `OFFER_PHASE` before `COMMIT_OFFER`, its right-edge public exposure applies on the user's *subsequent* committed offer (not the offer currently being weighted). (b) *Inspection Window* requires at least `2` unlocked slots and `1` unrevealed slot so a charge cannot be accidentally wasted on a forced 1-slot draw. (c) When multiple unrevealed Emblem (`★`) tickets exist for *Bell Cord*, one is chosen via a deterministic sub-stream derived from `(encounterSeed, actionSeq)` so replays reproduce identically without positional bias. (d) If *Carbon Copy* triggers while two Inspection Stamps are both spent, it refills the leftmost spent slot in the Stamp tray; if no Inspection Stamp is spent yet, *Carbon Copy* remains unspent for a later `LANTERN`/`WATCH` match. (e) Using *Night Transfer* is logged publicly so a legal observer never misattributes a previously forfeited swap to a non-swapped right-edge card.
+- **D12 — Guided practice tutorial deck**: Standard encounters always use `6–12` pairs; the optional skippable Tutorial uses a fixed 5-pair (`11`-card, `allowSmallTutorialDeck: true`) engine-backed practice deal so first-time players with zero Old Maid knowledge experience opening auto-pairs, drawing a match, offering, drawing The Unlisted + Streak/Final Call, private swapping, *Inspection Window* + tradeoff, and winning in ~2 minutes before entering Stop 1 (`7` pairs).
+- **D13 — Multi-deal stops, Inspector Stamp parity & Locker tool determinism**: (a) The Inspector's equipped Stamps execute through the exact same `USE_STAMP` engine rules, `ObserverView` privacy boundary, and public tradeoffs (forfeited swaps, exposed edge cards) as the player's Stamps, preserving 100% hidden-card permutation invariance. (b) `CHECK_EDGE` and `USE_GAUGE` are first-class deterministic engine actions derived from `(encounterSeed, actionSeq)` whose private clues never leak into the opponent's `ObserverView` and replay bit-identically from exported logs. (c) Keepsake items can be toggled Active/Stowed individually in the Platform Locker without losing unlock status, supporting both full roguelike meta-progression and clean seeded-parity runs.
