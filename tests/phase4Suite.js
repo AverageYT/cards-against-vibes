@@ -1028,3 +1028,53 @@ export function testSceneCompositionAndAnchors() {
   const wFar = feature(wide, "tableFarEdge");
   assert.ok(pFar.w < wFar.w, "portrait framing must pull the camera back");
 }
+
+/**
+ * Dev HUD toggle (art-inspection aid).
+ *
+ * Hiding the HUD is a *view* switch: the game must keep its state, keep its
+ * values live, and never become unrecoverable. The dangerous failure modes are
+ * (a) hiding the stage along with the HUD, because both live inside `#app`, and
+ * (b) leaving a keyboard user with no visible, reachable way back.
+ */
+export function testHudToggleIsViewOnlyAndRecoverable() {
+  const src = fs.readFileSync(path.resolve("src/ui/presentation.js"), "utf8");
+  const html = fs.readFileSync(path.resolve("index.html"), "utf8");
+  const css = fs.readFileSync(path.resolve("styles/main.css"), "utf8");
+
+  // The control and the restore affordance both ship.
+  for (const id of ["hud-toggle", "hud-restore"]) {
+    assert.ok(html.includes(`id="${id}"`), `index.html ships #${id}`);
+    assert.ok(src.includes(`"${id}"`), `presentation binds #${id}`);
+  }
+
+  // Keyboard parity with M and P.
+  assert.match(src, /ev\.key === "h"/i, "H toggles the HUD");
+  assert.match(src, /applyHudVisibility\(!showHud\)/, "button and shortcut share one path");
+
+  // The restore chip must NOT be inside the hidden region and must be reachable.
+  assert.match(html, /id="hud-restore"[\s\S]{0,200}tabindex="-1"/, "restore starts untabbable");
+  assert.match(src, /dom\.hudRestore\.tabIndex = showHud \? -1 : 0/, "restore becomes tabbable when needed");
+
+  // Hiding must never reach the stage: the selector excludes it explicitly.
+  assert.match(
+    css,
+    /\.app-shell\.is-hud-hidden > \*:not\(\.carriage-stage\):not\(\.stage-veil\):not\(\.hud-restore\)/,
+    "the stage is excluded from the hidden rule"
+  );
+  assert.match(css, /\.app-shell\.is-hud-hidden > \.hud-restore\s*\{[^}]*display:\s*inline-flex/s, "restore shows when hidden");
+
+  // Focus is handed back to the toggle, not lost to the document.
+  assert.match(src, /dom\.hudToggle\.focus\(\)/, "focus returns to the toggle");
+
+  // The preference persists beside pixelation.
+  assert.match(src, /showHud:\s*parsed\.showHud !== false/, "saved preference is read");
+
+  // It is a preference, not a game rule: nothing in the core may read it.
+  const core = ["src/core/run.js", "src/core/engine.js", "src/ui/duelController.js"];
+  for (const f of core) {
+    const body = fs.readFileSync(path.resolve(f), "utf8");
+    assert.ok(!body.includes("showHud"), `${f} must not depend on HUD visibility`);
+  }
+  return true;
+}

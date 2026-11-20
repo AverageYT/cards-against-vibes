@@ -70,6 +70,18 @@
               <span class="icon-toggle-glyph" aria-hidden="true">▦</span>
               <span class="icon-toggle-label">Pixel</span>
             </button>
+            <button
+              type="button"
+              class="icon-toggle"
+              id="hud-toggle"
+              aria-pressed="false"
+              aria-expanded="false"
+              aria-controls="app"
+              title="Hide the interface to inspect the carriage (H)"
+            >
+              <span class="icon-toggle-glyph" aria-hidden="true">◫</span>
+              <span class="icon-toggle-label">HUD</span>
+            </button>
             <label class="toggle-field" for="reduced-motion-toggle">
               <input id="reduced-motion-toggle" type="checkbox" />
               <span>Reduced motion</span>
@@ -77,6 +89,22 @@
           </div>
         </div>
       </header>
+
+      <!--
+        Shown only while the HUD is hidden (dev art toggle). It must stay
+        outside the hidden region and remain keyboard reachable, otherwise the
+        toggle would be a one-way door for keyboard and screen-reader users.
+      -->
+      <button
+        type="button"
+        class="hud-restore"
+        id="hud-restore"
+        aria-hidden="true"
+        tabindex="-1"
+        title="Show the interface again (H)"
+      >
+        <span aria-hidden="true">◫</span> Show HUD <kbd>H</kbd>
+      </button>
 
       <!-- 1. TITLE SCREEN -->
       <main id="title-screen" class="screen-panel title-screen" aria-labelledby="title-heading">
