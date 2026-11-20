@@ -20,11 +20,17 @@
 import { INTERNAL_SIZE, PS1_CHANNEL_LEVELS } from "../data/palette.js";
 import { drawScene } from "./scene.js";
 
+/** Deep ink used behind letterboxed bars; matches the scene's own shadow. */
+const LETTERBOX_COLOR = "#04060b";
+
 const VERTEX_SHADER = `
 attribute vec2 aPos;
 varying vec2 vUv;
 void main() {
-  vUv = aPos * 0.5 + 0.5;
+  // WebGL texture V runs bottom-up while the 2D buffer's row 0 is the top row,
+  // so V has to be flipped or the whole scene is drawn upside down. The Canvas2D
+  // fallback draws the buffer top-down, and this keeps both paths identical.
+  vUv = vec2(aPos.x * 0.5 + 0.5, 1.0 - (aPos.y * 0.5 + 0.5));
   gl_Position = vec4(aPos, 0.0, 1.0);
 }
 `;
@@ -71,7 +77,7 @@ void main() {
   c *= scan;
 
   // Vignette toward the ink frame.
-  vec2 n = vUv * 2.0 - 1.0;
+  vec2 n = vec2(vUv.x, 1.0 - vUv.y) * 2.0 - 1.0;
   float vig = 1.0 - min(1.0, n.x * n.x * 0.72 + n.y * n.y * 0.5) * uVignette;
   c *= vig;
 
@@ -142,13 +148,20 @@ function createGlPipeline(canvas) {
 
   return {
     kind: "webgl",
-    draw({ buffer, bufferWidth, bufferHeight, width, height, settings, time }) {
+    draw({ buffer, bufferWidth, bufferHeight, width, height, fit, settings, time }) {
+      // Clear the whole framebuffer to the ink tone, then draw the scene into a
+      // centred 16:9 sub-viewport so a phone viewport letterboxes instead of
+      // stretching. GL's origin is bottom-left, so the Y offset flips.
       gl.viewport(0, 0, width, height);
+      gl.clearColor(0.016, 0.024, 0.043, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      const rect = fit || { width, height, offsetX: 0, offsetY: 0 };
+      gl.viewport(rect.offsetX, height - rect.offsetY - rect.height, rect.width, rect.height);
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, buffer);
       gl.uniform1i(uniforms.scene, 0);
       gl.uniform2f(uniforms.sceneSize, bufferWidth, bufferHeight);
-      gl.uniform2f(uniforms.outSize, width, height);
+      gl.uniform2f(uniforms.outSize, rect.width, rect.height);
       gl.uniform1f(uniforms.dither, settings.dither);
       gl.uniform1f(uniforms.levels, PS1_CHANNEL_LEVELS);
       gl.uniform1f(uniforms.scanline, settings.scanlines ? 0.07 : 0);
@@ -199,7 +212,11 @@ function renderSoftware(ctx, buffer, bufferWidth, bufferHeight, width, height, s
       d[di + 3] = 255;
     }
   }
-  ctx.putImageData(img, 0, 0);
+  // `offsetX/offsetY` place the letterboxed image inside a larger display
+  // buffer; putImageData ignores transforms, so the offset is applied here.
+  const ox = (settings && settings.offsetX) | 0;
+  const oy = (settings && settings.offsetY) | 0;
+  ctx.putImageData(img, ox, oy);
 }
 
 const DEFAULT_SETTINGS = Object.freeze({
@@ -278,6 +295,26 @@ export function mountStage({
   let visible = true;
   let size = { width: INTERNAL_SIZE.width, height: INTERNAL_SIZE.height };
 
+  /**
+   * Largest rect of `aspect` that fits in w x h, centred. Desktop viewports are
+   * usually already wider than 16:9 so this returns the full frame; phones get
+   * bars instead of a squash.
+   */
+  function fitRect(aspect, w, h, fill) {
+    let width = w;
+    let height = Math.round(w / aspect);
+    if (height > h) {
+      height = h;
+      width = Math.round(h * aspect);
+    }
+    return {
+      width: Math.max(1, Math.round(width * fill)),
+      height: Math.max(1, Math.round(height * fill)),
+      offsetX: Math.round((w - width) / 2),
+      offsetY: Math.round((h - height) / 2),
+    };
+  }
+
   function resize() {
     const dpr = 1; // The art is intentionally low-res; the CSS upscales it.
     const width = Math.max(120, Math.round((container.clientWidth || 640) * dpr));
@@ -316,6 +353,7 @@ export function mountStage({
         time: reduced ? 0 : elapsed,
         reducedMotion: reduced,
         mood: descriptor.mood || "neutral",
+        framing: descriptor.framing || "wide",
         ditherStrength: 0, // the stage shader owns dithering
         scanlines: false,
         vignette: 0,
@@ -323,6 +361,9 @@ export function mountStage({
         scale,
       });
       if (resizeNeeded()) resize();
+      // The scene is authored 16:9; both render paths letterbox to that ratio so
+      // a tall phone viewport shows the carriage rather than a squashed one.
+      const fit = fitRect(bw / bh, size.width, size.height, 1);
       if (pipeline.kind === "webgl") {
         pipeline.draw({
           buffer,
@@ -330,19 +371,30 @@ export function mountStage({
           bufferHeight: bh,
           width: size.width,
           height: size.height,
+          fit,
           settings: { ...settings, scanlines: settings.scanlines && settings.pixelation },
           time: elapsed,
         });
       } else if (displayCtx) {
+        // Letterbox: the scene is authored 16:9, so a tall phone viewport must
+        // not stretch it. Cover the frame with the scene's own ink tone and
+        // draw the true aspect ratio centred, matching the background so the
+        // bars read as shadow rather than as a border.
+        if (fit.offsetX > 0 || fit.offsetY > 0) {
+          displayCtx.fillStyle = LETTERBOX_COLOR;
+          displayCtx.fillRect(0, 0, size.width, size.height);
+        }
         if (settings.pixelation) {
-          renderSoftware(displayCtx, buffer, bw, bh, size.width, size.height, {
+          renderSoftware(displayCtx, buffer, bw, bh, fit.width, fit.height, {
             dither: settings.dither,
             scanlines: settings.scanlines,
             vignette: settings.vignette,
+            offsetX: fit.offsetX,
+            offsetY: fit.offsetY,
           });
         } else {
           displayCtx.imageSmoothingEnabled = true;
-          displayCtx.drawImage(buffer, 0, 0, size.width, size.height);
+          displayCtx.drawImage(buffer, fit.offsetX, fit.offsetY, fit.width, fit.height);
         }
       }
     }

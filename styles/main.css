@@ -2666,9 +2666,12 @@ summary:focus-visible {
 
 @media (max-width: 760px) {
   .carriage-stage {
-    /* Keep the hero (Inspector + lamp) in frame when the viewport is tall. */
-    inset: 0 0 auto 0;
-    height: 52vh;
+    /* Full-height on phones: the scene letterboxes itself to 16:9, so a fixed
+     * 52vh strip would crop the carriage rather than show it. The HUD still owns
+     * the foreground; the stage is the room behind it. */
+    inset: 0;
+    height: 100vh;
+    height: 100dvh;
   }
 
   .stage-veil {

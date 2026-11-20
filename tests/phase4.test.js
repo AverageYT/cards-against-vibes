@@ -15,6 +15,7 @@ import {
   testProceduralAudio,
   testProceduralTicketArt,
   testSceneRendersDeterministicFrame,
+  testSceneCompositionAndAnchors,
   testStageSoftwareFallbackAndToggle,
 } from "./phase4Suite.js";
 
@@ -22,7 +23,7 @@ test("10. Palette + PS1 ordered-dither quantisation stay in the locked 5-bit pal
   testPaletteAndPs1Quantisation();
 });
 
-test("11. Procedural 2.5D carriage renders deterministically: 440+ low-poly facets, clipped rain, one post pass, sway in full motion only", () => {
+test("11. Procedural 2.5D carriage renders deterministically: 300+ low-poly facets across background/table/fixtures, clipped rain, one post pass, sway in full motion only", () => {
   testSceneRendersDeterministicFrame();
 });
 
@@ -56,4 +57,8 @@ test("18. Keyboard-only traversal works and every gameplay state has a text/shap
 
 test("19. Desktop 1280x800 and phone portrait 390x844 layouts cannot overflow; the stage is layout-free", () => {
   testResponsiveConstraints();
+});
+
+test("20. Carriage composition: Inspector upper-centre, table widens toward the foreground, fans at the far and near edges, every HUD anchor present in both framings", () => {
+  testSceneCompositionAndAnchors();
 });
