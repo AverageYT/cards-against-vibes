@@ -19,6 +19,12 @@ import { CONDITION_IDS } from "../data/conditions.js";
 import { STAMP_IDS, getStampDef } from "../data/stamps.js";
 import { getTicketMeta } from "../data/tickets.js";
 
+/** Resolve artwork only from visible ticket metadata, never hidden card state. */
+export function ticketArtSymbol(ticketMeta) {
+  if (!ticketMeta) return "";
+  return ticketMeta.isUnlisted ? "UNLISTED" : ticketMeta.symbolId || ticketMeta.id || "";
+}
+
 const STAMP_SYNERGY_PARTNERS = Object.freeze({
   [STAMP_IDS.INSPECTION_WINDOW]: [
     STAMP_IDS.CARBON_COPY,
@@ -993,7 +999,9 @@ export function mountAppView(controller, doc = document) {
     node.dataset.slot = String(slotIndex);
     // Presentation layer reads these to swap in the procedural ticket art.
     if (isFaceUp && ticketMeta) {
-      node.dataset.symbol = ticketMeta.isUnlisted ? "UNLISTED" : ticketMeta.symbolId || "";
+      // `getTicketMeta` returns the raw symbol definition, which keys on `id`;
+      // accept either so a symbol is never lost to an empty string.
+      node.dataset.symbol = ticketArtSymbol(ticketMeta);
       node.dataset.emblem = ticketMeta.isEmblem ? "1" : "0";
     }
     node.classList.add(isFaceUp ? "is-face-up" : "is-face-down");

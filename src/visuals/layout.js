@@ -162,3 +162,31 @@ export const SCENE_ANCHORS = Object.freeze({
 });
 
 export { W as FRAME_WIDTH, H as FRAME_HEIGHT };
+
+/** Fit the full 320×180 scene into the available stage without cropping. */
+export function sceneTransform(viewportWidth, viewportHeight) {
+  const fw = INTERNAL_SIZE.width;
+  const fh = INTERNAL_SIZE.height;
+  const sx = viewportWidth / fw;
+  const sy = viewportHeight / fh;
+  // `cover` was tried on phones and abandoned: the frame is 16:9 while a phone
+  // viewport is ~9:19.5, so covering crops to a 26%-wide keyhole of the
+  // compartment. The phone instead uses `contain` for the picture (a short band
+  // that acts as the room's "window") and stacks the fixtures over it.
+  const scale = Math.min(sx, sy);
+  return {
+    scale,
+    width: Math.round(fw * scale),
+    height: Math.round(fh * scale),
+    offsetX: Math.round((viewportWidth - fw * scale) / 2),
+    offsetY: Math.round((viewportHeight - fh * scale) / 2),
+  };
+}
+
+/** Project a point given in frame percentages into viewport pixels. */
+export function projectFramePoint(transform, xPct, yPct) {
+  return {
+    left: Math.round(transform.offsetX + (xPct / 100) * INTERNAL_SIZE.width * transform.scale),
+    top: Math.round(transform.offsetY + (yPct / 100) * INTERNAL_SIZE.height * transform.scale),
+  };
+}

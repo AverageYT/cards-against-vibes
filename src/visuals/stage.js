@@ -19,6 +19,7 @@
 
 import { INTERNAL_SIZE, PS1_CHANNEL_LEVELS } from "../data/palette.js";
 import { drawScene } from "./scene.js";
+import { sceneTransform } from "./layout.js";
 
 /** Deep ink used behind letterboxed bars; matches the scene's own shadow. */
 const LETTERBOX_COLOR = "#04060b";
@@ -181,8 +182,10 @@ function createGlPipeline(canvas) {
 }
 
 /** Software fallback: nearest upscale + the same dither/quantise maths. */
-function renderSoftware(ctx, buffer, bufferWidth, bufferHeight, width, height, settings) {
+function renderSoftware(ctx, buffer, bufferWidth, bufferHeight, dest, settings) {
   const src = buffer.getContext("2d").getImageData(0, 0, bufferWidth, bufferHeight);
+  const width = Math.max(1, dest.width | 0);
+  const height = Math.max(1, dest.height | 0);
   const img = ctx.createImageData(width, height);
   const s = src.data;
   const d = img.data;
@@ -193,15 +196,17 @@ function renderSoftware(ctx, buffer, bufferWidth, bufferHeight, width, height, s
   const scanline = settings.scanlines ? 0.07 : 0;
   const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 
+  // Nearest sampling from the 320x180 buffer straight onto the destination, so
+  // this path is correct for any viewport shape without knowing about offsets.
   for (let y = 0; y < height; y += 1) {
     const sy = Math.min(bufferHeight - 1, ((y / height) * bufferHeight) | 0);
-    const ny = ((y / height) * 2 - 1);
+    const ny = (y / height) * 2 - 1;
     for (let x = 0; x < width; x += 1) {
       const sx = Math.min(bufferWidth - 1, ((x / width) * bufferWidth) | 0);
       const si = (sy * bufferWidth + sx) * 4;
       const di = (y * width + x) * 4;
       const bayer = BAYER[(y % 4) * 4 + (x % 4)] / 16 - 0.46875;
-      const nx = ((x / width) * 2 - 1);
+      const nx = (x / width) * 2 - 1;
       const vig = 1 - Math.min(1, nx * nx * 0.72 + ny * ny * 0.5) * vignette;
       const scan = (y & 1) === 1 ? 1 - scanline : 1;
       for (let k = 0; k < 3; k += 1) {
@@ -212,11 +217,8 @@ function renderSoftware(ctx, buffer, bufferWidth, bufferHeight, width, height, s
       d[di + 3] = 255;
     }
   }
-  // `offsetX/offsetY` place the letterboxed image inside a larger display
-  // buffer; putImageData ignores transforms, so the offset is applied here.
-  const ox = (settings && settings.offsetX) | 0;
-  const oy = (settings && settings.offsetY) | 0;
-  ctx.putImageData(img, ox, oy);
+  // putImageData ignores transforms, so the destination offset is applied here.
+  ctx.putImageData(img, dest.x | 0, dest.y | 0);
 }
 
 const DEFAULT_SETTINGS = Object.freeze({
@@ -295,26 +297,6 @@ export function mountStage({
   let visible = true;
   let size = { width: INTERNAL_SIZE.width, height: INTERNAL_SIZE.height };
 
-  /**
-   * Largest rect of `aspect` that fits in w x h, centred. Desktop viewports are
-   * usually already wider than 16:9 so this returns the full frame; phones get
-   * bars instead of a squash.
-   */
-  function fitRect(aspect, w, h, fill) {
-    let width = w;
-    let height = Math.round(w / aspect);
-    if (height > h) {
-      height = h;
-      width = Math.round(h * aspect);
-    }
-    return {
-      width: Math.max(1, Math.round(width * fill)),
-      height: Math.max(1, Math.round(height * fill)),
-      offsetX: Math.round((w - width) / 2),
-      offsetY: Math.round((h - height) / 2),
-    };
-  }
-
   function resize() {
     const dpr = 1; // The art is intentionally low-res; the CSS upscales it.
     const width = Math.max(120, Math.round((container.clientWidth || 640) * dpr));
@@ -363,7 +345,8 @@ export function mountStage({
       if (resizeNeeded()) resize();
       // The scene is authored 16:9; both render paths letterbox to that ratio so
       // a tall phone viewport shows the carriage rather than a squashed one.
-      const fit = fitRect(bw / bh, size.width, size.height, 1);
+      // The same projection places the DOM fixtures (see presentation.js).
+      const fit = sceneTransform(size.width, size.height);
       if (pipeline.kind === "webgl") {
         pipeline.draw({
           buffer,
@@ -384,17 +367,16 @@ export function mountStage({
           displayCtx.fillStyle = LETTERBOX_COLOR;
           displayCtx.fillRect(0, 0, size.width, size.height);
         }
+        const dest = { x: fit.offsetX, y: fit.offsetY, width: fit.width, height: fit.height };
         if (settings.pixelation) {
-          renderSoftware(displayCtx, buffer, bw, bh, fit.width, fit.height, {
+          renderSoftware(displayCtx, buffer, bw, bh, dest, {
             dither: settings.dither,
             scanlines: settings.scanlines,
             vignette: settings.vignette,
-            offsetX: fit.offsetX,
-            offsetY: fit.offsetY,
           });
         } else {
           displayCtx.imageSmoothingEnabled = true;
-          displayCtx.drawImage(buffer, fit.offsetX, fit.offsetY, fit.width, fit.height);
+          displayCtx.drawImage(buffer, dest.x, dest.y, dest.width, dest.height);
         }
       }
     }
