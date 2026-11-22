@@ -22,6 +22,9 @@
           <p class="game-subtitle" id="encounter-subtitle">Midnight Line · Ticket Duel</p>
         </div>
 
+        <!-- Run state lives on the compartment as objects; see the physical fixture rules.
+             It stays inside the topbar for keyboard order, but each child is
+             positioned onto its own furniture. -->
         <div class="run-hud hidden" id="run-hud" aria-label="Run progress, match score, and lanterns">
           <ol class="route-track" id="route-track" aria-label="Five-stop carriage route"></ol>
           <div class="match-score-pill hidden" id="match-score-pill" aria-label="Carriage deal score"></div>
@@ -331,11 +334,16 @@
         <!-- Center Fold-Down Table Surface -->
         <section class="table-center" aria-live="polite">
           <div class="status-strip">
+            <!-- The turn/action prompt: on desktop this is a paper slip in a
+                 clip holder; on a phone it is a plain prompt line. -->
             <div class="phase-banner" id="phase-banner">
               <span class="phase-tag" id="phase-tag">TURN 1</span>
               <p class="phase-prompt" id="phase-prompt">Preparing manifest…</p>
             </div>
 
+            <!-- The Unlisted streak and Final Call. On desktop the pips become
+                 filing notches cut into a brass bell; the accessible name is
+                 unchanged. -->
             <div
               class="streak-box"
               id="streak-box"
@@ -349,10 +357,13 @@
 
           <div class="spotlight-tray" id="spotlight-tray"></div>
 
+          <!-- Matched pairs. On desktop this is a ledger book at the table's
+               left corner; the <details> semantics are identical either way. -->
           <details class="manifest-drawer" id="manifest-drawer">
             <summary class="manifest-summary">
-              <span>Manifest Ledger (matched &amp; cleared pairs)</span>
+              <span class="manifest-title">Manifest</span>
               <span id="manifest-count">0 / 7 pairs cleared</span>
+              <span class="sr-only">Ledger of matched and cleared pairs</span>
             </summary>
             <div class="manifest-list" id="manifest-list"></div>
           </details>
@@ -382,6 +393,7 @@
           ></div>
 
           <!-- Passenger Locker Tools (Perforation Gauge & Check Edge) -->
+          <!-- Keepsake tools hang from two brass hooks on the near rail. -->
           <div
             class="tools-bar hidden"
             id="tools-bar"
@@ -389,7 +401,7 @@
             aria-label="Locker Keepsake Tools"
           ></div>
 
-          <!-- 3-Slot Stamp Tray -->
+          <!-- 3-Slot Stamp Tray: recessed wells cut into the table's near edge -->
           <div class="stamp-tray-wrap" aria-label="Your Stamp Tray">
             <div class="stamp-tray-header">
               <span class="stamp-tray-title">Stamp Tray</span>

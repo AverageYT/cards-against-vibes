@@ -11,6 +11,8 @@
 
 import { mountStage } from "../visuals/stage.js";
 import { describeLayout } from "../visuals/scene.js";
+import { FAN_BANDS, resolveFixtures } from "../visuals/fixtures.js";
+import { projectFramePoint, sceneTransform } from "../visuals/layout.js";
 import { createSoundEngine, SOUND_IDS } from "../audio/sound.js";
 import { createMotionRail, createSwayController, getMotionProfile, cueForEvent } from "../visuals/motion.js";
 import { cachedTicketFace, cachedTicketBack, emblemSvg, stampMarkDataUri } from "../visuals/tickets.js";
@@ -161,7 +163,10 @@ export function mountPresentation({
    */
   function publishSceneAnchors() {
     if (!dom.stageHost || !dom.stageHost.style || !dom.stageHost.style.setProperty) return;
-    const layout = describeLayout({ framing: currentFraming() });
+    const framing = currentFraming();
+    publishFixturePositions(framing);
+
+    const layout = describeLayout({ framing });
     dom.stageHost.setAttribute("data-scene-anchors", String(layout.features.length));
     for (const f of layout.features) {
       const set = (k, v) => dom.stageHost.style.setProperty(`--scene-${f.name}-${k}`, v);
@@ -170,7 +175,45 @@ export function mountPresentation({
       set("w", `${((f.w / 320) * 100).toFixed(2)}%`);
       set("h", `${((f.h / 180) * 100).toFixed(2)}%`);
     }
-    dom.stageHost.setAttribute("data-framing", currentFraming());
+    dom.stageHost.setAttribute("data-framing", framing);
+  }
+
+  /**
+   * Place the physical HUD fixtures on the objects the renderer drew.
+   *
+   * The scene is letterboxed to 16:9 inside the stage, so a fixture expressed as
+   * a percentage *of the viewport* drifts away from its furniture on any display
+   * that is not exactly 16:9. These are therefore computed in pixels: take the
+   * letterboxed scene rect, convert the fixture's frame percentage into a point
+   * inside it, and publish the result as `--fx-<name>-left/top`.
+   *
+   * Emitted as `left`/`top` (centre of the fixture) rather than `x`/`y` so the
+   * CSS can centre with a transform and nothing has to know the fixture's size.
+   */
+  function publishFixturePositions(framing) {
+    const root = doc.documentElement;
+    if (!root || !root.style || !root.style.setProperty) return;
+    const view = doc.defaultView;
+    if (!view) return;
+    const vw = view.innerWidth || 0;
+    const vh = view.innerHeight || 0;
+    if (!vw || !vh) return;
+    // Fixtures are placed in the SAME space the renderer draws in: the scene is
+    // letterboxed with `contain`, so project through exactly that transform or a
+    // fixture drifts off its furniture on any viewport that is not 16:9.
+    // (Phones do not use these anchors; their layout is a flowing column.)
+    const scene = sceneTransform(vw, vh);
+    const place = (prefix, f) => {
+      const p = projectFramePoint(scene, f.x, f.y);
+      root.style.setProperty(`--fx-${prefix}-left`, `${p.left}px`);
+      root.style.setProperty(`--fx-${prefix}-top`, `${p.top}px`);
+    };
+    for (const [name, f] of Object.entries(resolveFixtures(framing))) place(name, f);
+    // The card fans sit on the rows the renderer draws them on.
+    for (const [name, band] of Object.entries(FAN_BANDS)) {
+      place(`fan-${name}`, { x: 50, y: band.y });
+    }
+    root.setAttribute("data-framing", framing);
   }
 
   // Anchors must survive a resize/rotation: recompute and republish.
@@ -181,6 +224,7 @@ export function mountPresentation({
     };
     doc.defaultView.addEventListener("resize", onResize);
     listeners.push(() => doc.defaultView.removeEventListener("resize", onResize));
+
   }
 
   publishSceneAnchors();
@@ -350,8 +394,11 @@ export function mountPresentation({
       if (!node || !node.classList || !node.classList.contains("ticket-card")) return;
       const variant = Number(node.dataset?.slot ?? 0);
       if (node.classList.contains("is-face-up")) {
-        const symbolId = meta?.isUnlisted ? "UNLISTED" : meta?.symbolId;
-        const key = symbolId || "UNLISTED";
+        const symbolId = meta?.isUnlisted ? "UNLISTED" : meta?.symbolId || meta?.id;
+        // Keep the original glyph if metadata is missing; never represent an
+        // unknown ordinary ticket as the punched Unlisted face.
+        if (!symbolId) return;
+        const key = symbolId;
         if (node.dataset.artKey !== `${key}-${variant}`) {
           node.dataset.artKey = `${key}-${variant}`;
           if (typeof node.style?.setProperty === "function") {

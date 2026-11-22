@@ -858,7 +858,7 @@ summary:focus-visible {
 .seat-meta,
 .seat-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.45rem;
 }
@@ -2802,4 +2802,918 @@ summary:focus-visible {
   .ticket-glyph {
     font-size: 1.24rem;
   }
+}
+
+/* ======================================================================
+ * ART PHASE 3 — PHYSICAL HUD  (desktop / landscape)
+ *
+ * The interface stops being panels and becomes objects in the compartment: a
+ * punched station strip clipped by the window, a brass counter, three lamp
+ * cells, a paper slip in a clip, a bell with three filing notches, a ledger at
+ * the table corner, and stamp wells cut into the near edge.
+ *
+ * Each existing HUD element is positioned directly — no wrappers — from the
+ * `--fx-*` pixel coordinates that `presentation.js` projects through the same
+ * letterbox the renderer uses. So the DOM a player tabs through is unchanged;
+ * only pixels move.
+ *
+ * Design language (this phase's brief):
+ *   - no large opaque rectangle anywhere; a fixture is a small object with a
+ *     readable silhouette, a highlight on its top edge and a tight contact
+ *     shadow onto the wood;
+ *   - each sticks out enough to be found: a glint, an edge, a lit lamp;
+ *   - text that must stay legible gets a scrim behind its own line only.
+ *
+ * WHY DESKTOP-ONLY: the treatment assumes a 16:9 stage with room for a table. A
+ * phone is ~9:19.5; letterboxing leaves a 219px strip with nowhere to put the
+ * fixtures and covering crops to a 26%-wide keyhole. Phones therefore keep the
+ * original readable stacked layout — the diegetic fallback the UI/UX skill asks
+ * for. Same DOM, same ids, same focus order, same ARIA in both.
+ * ====================================================================== */
+
+@media (min-width: 1200px) and (min-aspect-ratio: 4/5) {
+  .topbar { background: transparent; border-color: transparent; }
+
+  :root {
+    --fx-paper: #ded2b6;
+    --fx-paper-deep: #c3b493;
+    --fx-paper-ink: #241f18;
+    --fx-brass-hi: #f0cd8b;
+    --fx-brass-mid: #b8893f;
+    --fx-brass-lo: #6d5124;
+    --fx-void: #05070b;
+    --fx-lamp-lit: #ffd287;
+    --fx-scrim: rgba(9, 12, 18, 0.66);
+  }
+
+  /* --- the table becomes a window onto the compartment ---------------- */
+
+  .carriage-table {
+    position: relative;
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    padding: 0;
+    gap: 0;
+    min-height: 0;
+  }
+
+  .seat,
+  .table-center,
+  .stamp-tray-wrap,
+  .status-strip,
+  .spotlight-tray {
+    background: none;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+    gap: 0;
+  }
+
+  /* Run-state fixtures live in the topbar for keyboard order but are placed on
+   * the compartment. */
+  .run-hud {
+    position: static;
+    display: contents;
+  }
+
+  /* --- placement: one rule per prop, centred on its projected point ----- */
+
+  .route-track {
+    position: fixed;
+    z-index: 6;
+    left: var(--fx-strip-left);
+    top: var(--fx-strip-top);
+    transform: translate(-50%, -50%) rotate(-1.4deg);
+  }
+
+  .match-score-pill {
+    position: fixed;
+    z-index: 6;
+    left: var(--fx-counter-left);
+    top: var(--fx-counter-top);
+    transform: translate(-50%, -50%);
+  }
+
+  .lantern-meter {
+    position: fixed;
+    z-index: 6;
+    left: var(--fx-lamps-left);
+    top: max(7.6rem, var(--fx-lamps-top));
+    transform: translate(-50%, -50%);
+  }
+
+  .phase-banner {
+    position: fixed;
+    z-index: 7;
+    left: var(--fx-slip-left);
+    top: var(--fx-slip-top);
+    transform: translate(-50%, -50%) rotate(0.5deg);
+  }
+
+  .streak-box {
+    position: fixed;
+    z-index: 6;
+    left: var(--fx-bell-left);
+    top: var(--fx-bell-top);
+    transform: translate(-50%, -50%);
+  }
+
+  .manifest-drawer {
+    position: fixed;
+    z-index: 6;
+    left: var(--fx-manifest-left);
+    top: var(--fx-manifest-top);
+    transform: translate(-50%, -50%);
+  }
+
+  .stamp-tray-wrap {
+    position: fixed;
+    z-index: 6;
+    left: var(--fx-wells-left);
+    top: var(--fx-wells-top);
+    transform: translate(-50%, -50%);
+  }
+
+  .tools-bar {
+    position: fixed;
+    z-index: 6;
+    left: auto;
+    right: 1rem;
+    top: calc(var(--fx-bell-top) + 3.5rem);
+    width: 14rem;
+    transform: none;
+  }
+
+  .ticket-fan {
+    position: fixed;
+    z-index: 6;
+    width: auto;
+    max-width: none;
+    min-height: 0;
+    padding: 0;
+    background: none;
+    border: 0;
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 0.4rem;
+    transform: translate(-50%, -50%);
+  }
+
+  .inspector-fan { left: var(--fx-fan-far-left);  top: var(--fx-fan-far-top); }
+  .player-fan    { left: var(--fx-fan-near-left); top: var(--fx-fan-near-top); }
+
+  /* Seat labels: small engraved plates, not full-width rows. */
+  .seat-header {
+    position: fixed;
+    z-index: 7;
+    display: inline-flex;
+    width: max-content;
+    margin: 0;
+    padding: 0.08rem 0.36rem;
+    gap: 0.34rem;
+    align-items: baseline;
+    flex-wrap: nowrap;
+    background: var(--fx-scrim);
+    border-radius: 2px;
+  }
+
+  .seat-header .hidden,
+  .seat-header .btn.hidden,
+  .seat-header .swap-status:empty,
+  .seat-header .risk-note:empty {
+    display: none;
+  }
+
+  .seat-inspector .seat-header {
+    /* Name plate rides above the kit bar so the two never overlap. */
+    left: max(1rem, calc(var(--fx-fan-far-left) - 34rem));
+    top: calc(var(--fx-fan-far-top) - 9.2rem);
+    max-width: 19rem;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  /* Gameplay notes and tier remain visible and may wrap instead of clipping. */
+  .seat-inspector .seat-header {
+    max-width: 25rem;
+    overflow: visible;
+    white-space: normal;
+    flex-wrap: wrap;
+  }
+
+  .seat-player .seat-header {
+    left: max(1rem, calc(var(--fx-manifest-left) - 16rem));
+    top: calc(var(--fx-manifest-top) - 2.2rem);
+    transform: translateY(-50%);
+    max-width: 8.5rem;
+    overflow: visible;
+    white-space: normal;
+    flex-wrap: wrap;
+  }
+
+  .seat-player .seat-actions { flex-wrap: wrap; }
+
+  .seat-name {
+    margin: 0;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--fx-brass-hi);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+    white-space: nowrap;
+  }
+
+  .tier-badge,
+  .role-badge {
+    padding: 0 0.3rem;
+    font-size: 0.6rem;
+    color: var(--fx-paper-deep);
+    background: none;
+    border: 1px solid rgba(240, 205, 139, 0.35);
+    border-radius: 2px;
+  }
+
+  .inspector-stamps-bar {
+    position: fixed;
+    z-index: 8;
+    left: var(--fx-fan-far-left);
+    top: calc(var(--fx-fan-far-top) - 7.4rem);
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0.1rem 0.3rem;
+    max-width: 26rem;
+    background: var(--fx-scrim);
+    border-radius: 2px;
+    font-size: 0.58rem;
+    color: var(--fx-paper-deep);
+  }
+
+  .inspector-stamps-bar.hidden { display: none; }
+  /* ================================================ object materials
+   * One vocabulary for the whole kit: brass catches a highlight on its top
+   * edge, paper is warm and slightly ragged, and every prop casts a short
+   * contact shadow so it sits ON the varnish.
+   * ================================================================= */
+
+  /* ---- 1. punched station strip, clipped by the window ---- */
+
+  .route-track {
+    display: flex;
+    align-items: center;
+    gap: 0.28rem;
+    list-style: none;
+    margin: 0;
+    padding: 0.16rem 0.5rem 0.16rem 0.34rem;
+    background:
+      repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.04) 0 1px, transparent 1px 5px),
+      linear-gradient(175deg, var(--fx-paper) 0%, var(--fx-paper-deep) 100%);
+    border-radius: 2px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      0 2px 5px rgba(0, 0, 0, 0.55);
+  }
+
+  .route-track::before {
+    content: "";
+    position: absolute;
+    left: -0.3rem;
+    top: 50%;
+    width: 0.3rem;
+    height: 1.5rem;
+    transform: translateY(-50%);
+    border-radius: 2px 0 0 2px;
+    background: linear-gradient(180deg, var(--fx-brass-hi), var(--fx-brass-mid) 55%, var(--fx-brass-lo));
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  }
+
+  .route-node.is-won {
+    background: radial-gradient(ellipse at 50% 40%, var(--fx-brass-hi), var(--fx-brass-lo));
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 6px rgba(240, 205, 139, 0.45);
+  }
+
+  .route-node.is-current {
+    background: radial-gradient(ellipse at 50% 40%, #fff6e2, var(--fx-brass-mid));
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4), 0 0 8px rgba(255, 226, 168, 0.75);
+  }
+
+  /* ---- 2. engraved brass deal counter ---- */
+
+  .match-score-pill {
+    padding: 0.12rem 0.55rem;
+    border-radius: 2px;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent 42%),
+      linear-gradient(170deg, var(--fx-brass-mid), #7d5c28);
+    box-shadow:
+      inset 0 0 0 1px rgba(20, 14, 6, 0.55),
+      inset 0 1px 0 rgba(255, 240, 200, 0.55),
+      0 2px 4px rgba(0, 0, 0, 0.6);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: #2c1f0c;
+    text-shadow: 0 1px 0 rgba(255, 236, 190, 0.5);
+  }
+
+  /* ---- 3. three lamp cells ---- */
+
+  .lantern-meter {
+    display: flex;
+    align-items: center;
+    gap: 0.24rem;
+    padding: 0.14rem 0.4rem;
+    border-radius: 2px;
+    background: linear-gradient(180deg, rgba(28, 22, 16, 0.9), rgba(12, 11, 10, 0.92));
+    box-shadow:
+      inset 0 0 0 1px rgba(240, 205, 139, 0.28),
+      0 2px 5px rgba(0, 0, 0, 0.6);
+  }
+
+  .lantern-pip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 0.74rem;
+    height: 0.9rem;
+    font-size: 0.46rem;
+    border-radius: 45% 45% 40% 40%;
+    background: radial-gradient(ellipse at 50% 32%, var(--fx-lamp-lit) 0%, #b9762a 52%, #4a3117 100%);
+    box-shadow: 0 0 7px rgba(255, 210, 135, 0.75), inset 0 0 2px rgba(0, 0, 0, 0.6);
+    color: #3a2408;
+  }
+
+  .lantern-pip.is-out {
+    background: linear-gradient(180deg, #2d3540 0%, #1a1f27 62%, #3b3226 64%, #241d16 100%);
+    box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    color: #5b6675;
+  }
+
+  .lantern-text {
+    margin-left: 0.14rem;
+    font-size: 0.56rem;
+    letter-spacing: 0.03em;
+    color: var(--fx-paper-deep);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  }
+
+  /* ---- 4. paper slip in a clip holder ---- */
+
+  .phase-banner {
+    min-width: 12rem;
+    max-width: 17rem;
+    padding: 0.36rem 0.62rem 0.44rem;
+    border-radius: 1px 1px 3px 3px;
+    background:
+      linear-gradient(180deg, rgba(255, 253, 245, 0.55), transparent 30%),
+      linear-gradient(178deg, var(--fx-paper) 0%, var(--fx-paper-deep) 78%, #a79877 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.6),
+      0 3px 9px rgba(0, 0, 0, 0.55);
+  }
+
+  .phase-banner::before {
+    content: "";
+    position: absolute;
+    top: -0.44rem;
+    left: 50%;
+    width: 1.35rem;
+    height: 0.52rem;
+    transform: translateX(-50%);
+    border-radius: 3px 3px 1px 1px;
+    background: linear-gradient(180deg, var(--fx-brass-hi), var(--fx-brass-mid) 60%, #5f4720);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  }
+
+  .phase-tag {
+    display: inline-block;
+    margin-bottom: 0.05rem;
+    padding: 0 0.26rem;
+    font-size: 0.54rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--fx-paper-deep);
+    background: #2a2419;
+    border-radius: 1px;
+  }
+
+  .phase-prompt {
+    margin: 0;
+    font-size: 0.74rem;
+    line-height: 1.26;
+    color: var(--fx-paper-ink);
+  }
+
+  /* ---- 5. bell with three filing notches ---- */
+
+  .streak-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.06rem;
+    padding: 0;
+    background: none;
+    border: 0;
+    box-shadow: none;
+    position: fixed;
+  }
+
+  .streak-box .streak-label { display: none; }
+
+  .streak-pips {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 0.14rem;
+    width: 2.5rem;
+    height: 1.95rem;
+    padding-bottom: 0.3rem;
+    border-radius: 50% 50% 46% 46% / 74% 74% 26% 26%;
+    background: radial-gradient(ellipse at 38% 24%, #fff2cf 0%, var(--fx-brass-hi) 18%, var(--fx-brass-mid) 58%, var(--fx-brass-lo) 100%);
+    box-shadow:
+      inset 0 -2px 3px rgba(0, 0, 0, 0.45),
+      inset 0 2px 1px rgba(255, 248, 225, 0.5),
+      0 3px 6px rgba(0, 0, 0, 0.6);
+  }
+
+  .streak-box .streak-pip {
+    width: 0.26rem;
+    height: 0.38rem;
+    border-radius: 50% 50% 40% 40% / 60% 60% 40% 40%;
+    background: #241a0c;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.9);
+  }
+
+  .streak-box .streak-pip.is-lit {
+    background: radial-gradient(ellipse at 50% 30%, #fff3d4, #b9762a);
+    box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.5), 0 0 5px rgba(255, 220, 150, 0.65);
+  }
+
+  .streak-caption {
+    padding: 0 0.28rem;
+    font-size: 0.54rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--fx-paper-deep);
+    background: var(--fx-scrim);
+    border-radius: 1px;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  }
+
+  .streak-box.is-final-call .streak-pips {
+    background: radial-gradient(ellipse at 38% 24%, #ffe9c9 0%, #f0a768 20%, #b2502f 62%, #5c2114 100%);
+    box-shadow:
+      inset 0 -2px 3px rgba(0, 0, 0, 0.5),
+      0 0 14px rgba(226, 120, 74, 0.6),
+      0 3px 6px rgba(0, 0, 0, 0.6);
+  }
+
+  .streak-box.is-final-call .streak-caption {
+    color: #ffd9c6;
+    background: rgba(72, 24, 14, 0.82);
+  }
+
+  .table-footer {
+    position: fixed;
+    z-index: 7;
+    right: 1rem;
+    top: 8rem;
+    width: 14rem;
+    flex-direction: column;
+    align-items: flex-end;
+    text-align: right;
+  }
+  .table-footer .kbd-hint { background: var(--fx-scrim); padding: .2rem .3rem; }
+
+  /* Resolution notices are small receipts, not a full-width overlay over the
+   * playable fan. They remain live DOM text and never receive pointer events. */
+  .spotlight-tray {
+    position: fixed;
+    z-index: 5;
+    right: 1rem;
+    top: var(--fx-fan-far-top);
+    width: 14rem;
+    min-height: 0;
+    pointer-events: none;
+  }
+  .spotlight-card {
+    width: 100%;
+    padding: .35rem .5rem;
+    border-radius: 2px;
+    box-shadow: 0 2px 6px #0009;
+  }
+  .spotlight-headline { font-size: .75rem; }
+  .spotlight-detail { font-size: .68rem; }
+
+  /* ---- 6. manifest ledger ---- */
+
+  .manifest-drawer {
+    border: 0;
+    padding: 0;
+    background: none;
+  }
+
+  .manifest-summary {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 0.34rem;
+    white-space: nowrap;
+    padding: 0.12rem 0.4rem;
+    cursor: pointer;
+    list-style: none;
+    border-radius: 2px;
+    font-size: 0.54rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background:
+      linear-gradient(135deg, var(--fx-brass-mid) 0 0.45rem, transparent 0.45rem),
+      linear-gradient(170deg, #33241a 0%, #1d150f 100%);
+    box-shadow:
+      inset 0 0 0 1px rgba(240, 205, 139, 0.4),
+      0 2px 5px rgba(0, 0, 0, 0.6);
+    color: var(--fx-paper-deep);
+  }
+
+  .manifest-summary::-webkit-details-marker { display: none; }
+
+  .manifest-summary:hover,
+  .manifest-summary:focus-visible {
+    box-shadow:
+      inset 0 0 0 1px var(--fx-brass-hi),
+      0 0 9px rgba(240, 205, 139, 0.35),
+      0 2px 5px rgba(0, 0, 0, 0.6);
+  }
+
+  #manifest-count { color: var(--fx-brass-hi); font-variant-numeric: tabular-nums; }
+  .manifest-title { color: var(--fx-paper-deep); }
+
+  .manifest-list .manifest-chip { color: #241f18; background: #b8a984; border-color: #6d5124; }
+
+  .manifest-list {
+    position: absolute;
+    top: 100%;
+    bottom: auto;
+    /* Open away from the stamp wells; clamp to the viewport on small laptops. */
+    left: max(-11.5rem, calc(6rem - var(--fx-manifest-left)));
+    margin-top: 0.28rem;
+    width: 11.5rem;
+    min-width: 0;
+    box-sizing: border-box;
+    max-height: 9rem;
+    overflow: auto;
+    padding: 0.36rem 0.46rem;
+    border-radius: 2px;
+    background: linear-gradient(180deg, var(--fx-paper) 0%, var(--fx-paper-deep) 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      0 6px 14px rgba(0, 0, 0, 0.65);
+    color: var(--fx-paper-ink);
+    font-size: 0.64rem;
+    z-index: 12;
+  }
+
+  /* ---- 7. recessed stamp wells ---- */
+
+  .stamp-tray-wrap {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .stamp-tray-header {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 0.12rem);
+    transform: translateX(-50%);
+    display: flex;
+    justify-content: center;
+    gap: 0.15rem;
+    flex-direction: column;
+    width: max-content;
+    max-width: 14rem;
+    white-space: normal;
+    text-align: center;
+    font-size: 0.54rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--fx-paper-deep);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  }
+
+  .stamp-tray-title { color: var(--fx-brass-hi); }
+  .stamp-tray-hint { display: block; color: var(--fx-paper); }
+
+  .stamp-tray {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.85rem;
+  }
+
+  .stamp-tray .stamp-slot {
+    position: relative;
+    flex: 0 0 auto;
+    width: 5.4rem;
+    height: 2rem;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 0.58rem;
+    letter-spacing: 0.05em;
+    background: radial-gradient(ellipse at 50% 118%, #2f1f22 0%, #1a1114 62%, #0a0809 100%);
+    box-shadow:
+      inset 0 2px 4px rgba(0, 0, 0, 0.9),
+      0 1px 0 rgba(255, 226, 168, 0.16);
+    color: var(--fx-paper-deep);
+  }
+
+  .stamp-tray .stamp-slot.is-ready,
+  .stamp-tray .stamp-slot.is-armed {
+    background:
+      radial-gradient(ellipse at 50% 30%, rgba(255, 240, 200, 0.26) 0%, transparent 60%),
+      radial-gradient(ellipse at 50% 118%, #3a2a1a 0%, #1a1114 62%, #0a0809 100%);
+    color: var(--fx-paper);
+  }
+
+  .stamp-tray .stamp-slot:hover,
+  .stamp-tray .stamp-slot:focus-visible {
+    box-shadow:
+      inset 0 2px 4px rgba(0, 0, 0, 0.9),
+      0 0 0 1px var(--fx-brass-hi),
+      0 0 8px rgba(240, 205, 139, 0.4);
+  }
+
+  /* Populated wells expand to keep the benefit and tradeoff readable. */
+  .stamp-tray .stamp-slot:not(.is-empty) {
+    width: 7.6rem;
+    min-height: 4.4rem;
+    height: auto;
+    padding: 0.35rem 0.4rem;
+    border-radius: 0.6rem;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .stamp-tray .stamp-slot-top { flex-direction: column; gap: 0.1rem; }
+  .stamp-slot-name { font-size: 0.65rem; }
+  .stamp-slot-status { font-size: 0.59rem; white-space: normal; opacity: 0.95; }
+  .stamp-slot-desc { font-size: 0.62rem; color: #eee2c9; }
+
+  /* ---- 8. tool rack ---- */
+
+  .tools-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.28rem;
+    padding: 0;
+    background: none;
+    border: 0;
+  }
+
+  .tools-bar.hidden { display: none; }
+
+  .tools-bar .tool-btn {
+    position: relative;
+    min-height: 2.75rem;
+    width: 100%;
+    white-space: normal;
+    padding: 0.25rem 0.4rem;
+    border-radius: 2px;
+    font-size: 0.58rem;
+    letter-spacing: 0.04em;
+    color: var(--fx-paper-ink);
+    cursor: pointer;
+    background: linear-gradient(180deg, var(--fx-paper) 0%, var(--fx-paper-deep) 100%);
+    box-shadow:
+      inset 0 0 0 1px rgba(109, 81, 36, 0.55),
+      0 2px 4px rgba(0, 0, 0, 0.55);
+  }
+
+  .tools-bar .tool-btn::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: -0.3rem;
+    width: 0.46rem;
+    height: 0.34rem;
+    transform: translateX(-50%);
+    border: 1px solid var(--fx-brass-mid);
+    border-bottom: 0;
+    border-radius: 4px 4px 0 0;
+  }
+
+  /* ---- ticket art: worn stock, perspective, lift ---- */
+
+  .ticket-fan .ticket-card {
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.06) inset,
+      0 2px 3px rgba(0, 0, 0, 0.55),
+      0 5px 10px rgba(0, 0, 0, 0.35);
+    transform: rotate(var(--card-tilt, 0deg));
+    transform-origin: 50% 92%;
+  }
+
+  .ticket-fan .ticket-card:nth-child(odd)  { --card-tilt: -1.1deg; }
+  .ticket-fan .ticket-card:nth-child(even) { --card-tilt: 1.1deg; }
+  .ticket-fan .ticket-card:first-child     { --card-tilt: -2.2deg; }
+  .ticket-fan .ticket-card:last-child      { --card-tilt: 2.2deg; }
+
+  .ticket-fan .ticket-card:hover,
+  .ticket-fan .ticket-card:focus-visible {
+    transform: rotate(0deg) translateY(-6px) scale(1.03);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.08) inset,
+      0 6px 10px rgba(0, 0, 0, 0.5),
+      0 14px 22px rgba(0, 0, 0, 0.4);
+    z-index: 3;
+  }
+
+  .ticket-fan .ticket-card:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .reduced-motion .ticket-fan .ticket-card:hover,
+  .reduced-motion .ticket-fan .ticket-card:focus-visible {
+    transform: rotate(var(--card-tilt, 0deg)) translateY(-3px);
+  }
+
+}
+
+/* Visually hidden but available to screen readers. Used where the physical prop
+ * carries a short label and the full wording must stay in the accessibility
+ * tree (e.g. the manifest's "Ledger of matched and cleared pairs"). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ======================================================================
+ * 11. PHONE: the compartment as a picture band
+ *
+ * Phones keep the readable stacked interface (the diegetic fallback), but the
+ * carriage should still be visible: it is the game. The stage becomes an exact
+ * 16:9 band directly under the top bar, in normal flow — no measurement, no
+ * magic numbers, and it cannot overlap a control.
+ *
+ * Order is explicit for every app-shell child so the band sits second no matter
+ * what order the screens are in the DOM. Hidden screens are display:none, so
+ * their order value is inert.
+ * ====================================================================== */
+
+@media (max-width: 1199px), (max-aspect-ratio: 4/5) {
+  /* The band is not behind anything any more, so the veil would only dim it. */
+  .stage-veil { display: none; }
+
+  .app-shell > * { order: 3; }
+
+  .topbar { order: 0; }
+
+  .carriage-stage {
+    order: 1;
+    position: relative;
+    inset: auto;
+    z-index: 0;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    flex: 0 0 auto;
+    contain: layout paint;
+    border-bottom: 1px solid rgba(201, 154, 73, 0.22);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+  }
+}
+
+/* Phone: keep the controls in document flow, but make the table's fixtures
+   individual objects rather than nesting the game inside opaque HUD panels. */
+@media (max-width: 1199px), (max-aspect-ratio: 4/5) {
+  #table-screen.carriage-table {
+    flex: 0 0 auto;
+    justify-content: flex-start;
+    background: linear-gradient(160deg, #30251c, #17120e 55%, #241a13);
+    border: 0;
+    box-shadow: inset 0 2px 0 #7e6036;
+  }
+  #table-screen .ticket-fan,
+  #table-screen .table-center,
+  #table-screen .stamp-tray-wrap {
+    background: none;
+    border: 0;
+    box-shadow: none;
+    padding: 0.3rem 0;
+  }
+  #table-screen .phase-banner {
+    flex-basis: 100%;
+    min-width: 0;
+    padding: 0.55rem 0.65rem;
+    background: linear-gradient(#eadfc7, #cbbd9e);
+    color: #241f18;
+    box-shadow: 0 3px 6px #0009;
+  }
+  #table-screen .phase-tag, #table-screen .phase-prompt { color: #241f18; }
+  #table-screen .stamp-slot {
+    border-radius: 50%;
+    background: radial-gradient(ellipse, #271619, #080607);
+    box-shadow: inset 0 3px 5px #000b, 0 1px 0 #ffe0a333;
+  }
+  #table-screen .manifest-summary { min-height: 2.75rem; }
+}
+
+/* On phones each readout remains in flow, styled as an individual fitting. */
+@media (max-width: 1199px), (max-aspect-ratio: 4/5) {
+  .topbar { background: transparent; border: 0; box-shadow: none; }
+  .topbar button, .topbar .icon-toggle { min-height: 44px; }
+  .topbar .icon-toggle { min-width: 44px; }
+  .route-track {
+    width: max-content;
+    max-width: 100%;
+    padding: .2rem .35rem;
+    background: linear-gradient(#ebdfc4, #beae8c);
+    box-shadow: 0 2px 4px #0009;
+    transform: rotate(-1deg);
+  }
+  .match-score-pill {
+    color: #241b0e;
+    background: linear-gradient(#f1cf88, #a57632);
+    box-shadow: inset 0 0 0 1px #5b3d16, 0 2px 4px #0009;
+  }
+  .lantern-meter { border: 1px solid #76582d; background: #19140f; }
+  #table-screen .streak-box {
+    align-items: center;
+    border: 0;
+    background: transparent;
+    padding: 0 .25rem;
+  }
+  #table-screen .streak-pips {
+    align-items: flex-end;
+    justify-content: center;
+    width: 3rem;
+    height: 2.1rem;
+    padding-bottom: .32rem;
+    border-radius: 50% 50% 38% 38% / 75% 75% 25% 25%;
+    background: radial-gradient(ellipse at 35% 25%, #fff2cf, #d3a658 50%, #64471d);
+    box-shadow: inset 0 -2px 3px #0008, 0 3px 5px #0008;
+  }
+  #table-screen .streak-pip { width: .3rem; height: .4rem; background: #241a0c; border: 0; }
+  #table-screen .streak-pip.is-lit { background: #ffdf93; box-shadow: 0 0 5px #ffdf93; }
+  #table-screen .streak-box.is-final-call .streak-pips { background: radial-gradient(ellipse at 35% 25%, #ffe2ba, #c76840 55%, #612316); }
+  #table-screen .manifest-drawer { border-top: 0; }
+  #table-screen .manifest-summary {
+    padding: .3rem .5rem;
+    background: linear-gradient(160deg, #403026, #211610);
+    border: 1px solid #a88048;
+    color: #f0e1c4;
+    box-shadow: 0 2px 4px #0009;
+  }
+  #table-screen .stamp-tray { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #table-screen .stamp-slot { min-width: 0; }
+  #table-screen .stamp-slot:not(.is-empty) { border-radius: .6rem; padding: .5rem; }
+  #table-screen .stamp-slot-top { flex-direction: column; align-items: flex-start; }
+  #table-screen .stamp-slot-status { white-space: normal; overflow-wrap: anywhere; }
+  #table-screen .tools-bar {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    padding: .35rem 0;
+  }
+  #table-screen .tools-bar .tool-btn {
+    min-height: 44px;
+    background: linear-gradient(#eadfc7, #c6b593);
+    color: #241b0e;
+    border-color: #8a6735;
+  }
+  #table-screen .ticket-card:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    transform: translateY(-3px);
+  }
+}
+@media (max-width: 1199px), (max-aspect-ratio: 4/5) {
+  .volume-field input[type="range"] { min-height: 44px; }
+  .toggle-field { min-height: 44px; }
+  #dev-trace-toggle { min-height: 44px; }
 }

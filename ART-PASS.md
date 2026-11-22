@@ -432,7 +432,7 @@ every capture in this document is the actual build.
 | --- | --- |
 | 1 — Research and visual plan | **Done** (this document) |
 | 2 — Carriage and table composition | **Done** — see §5.1 |
-| 3 — Physical HUD and ticket art | not started |
+| 3 — Physical HUD and ticket art | **Done** — see §5.2 |
 | 4 — Cloaked Inspector | not started |
 | 5 — Inspector animation | not started |
 | 6 — PS1 rendering pass | not started |
@@ -545,3 +545,49 @@ against a real reload: the HUD now stays hidden across page loads.
 
 Captures: `art-pass/after-p2-hud-hidden-desktop.png`,
 `art-pass/after-p2-hud-hidden-phone.png`.
+
+### 5.2 Art Phase 3 — physical HUD and ticket art
+
+**Built.** On wide screens the route strip, score plate, lamps, prompt slip,
+Final Call bell, manifest, stamp wells and tool rack are positioned from the
+same contained scene transform as the carriage. Resolution notices are small
+receipts instead of a full-width overlay. Gameplay text, descriptions, live
+regions, buttons and focus order remain in the DOM. The existing procedural
+railway ticket art now receives the correct symbol ID: `getTicketMeta` returns
+`id`, not `symbolId`, which had caused ordinary faces to display the Unlisted
+art. Missing metadata retains the original glyph rather than inventing a face.
+Hidden opponent cards continue to use one identical back.
+
+**Responsive compromise.** Below 1200 CSS pixels, or in tall portrait, the
+whole compartment is a 16:9 picture band and the controls flow underneath it.
+The paper slip, bell, ledger, route and wells are retained as individual
+fixtures on a table surface, with no nested opaque HUD panels. This replaces the
+original §3.2 no-scroll proposal: forcing desktop fixtures into narrow screens
+caused collisions and `cover` discarded most of the compartment. Controls are
+reachable by scrolling; no desktop anchor geometry is used for the flowing
+layout. The portrait fallback was also checked at 800×720 and 1080×2340.
+
+**Actually verified.** `npm test` passed **39/39**, including new tests for
+visible symbol mapping and scene projection. Chromium checks at 390×844,
+1280×720, 1280×800, 2560×1080 and 1080×2340 checked initial fixture visibility,
+identical backs, ordinary face keys, and draw/commit flow without page errors;
+390 and 1280×800 were rerun after the final responsive changes. At 390, emulated
+touch opened the manifest and drew a ticket, and keyboard Tab/arrow navigation
+reached labeled controls with visible focus. The tutorial was played through a
+real pair, Unlisted draw, swap, commit, and Inspection Window Stamp use. The
+Unlisted punched face appeared in actual play. A forced Canvas2D fallback
+rendered at 390×844 and 1280×800 without page errors. Captures:
+`art-pass/after-p3-desktop.png`, `after-p3-phone.png` (full page, expanded
+manifest), and `after-p3-unlisted.png` (actual draw).
+
+**Limits.** The active Final Call bell, full three-Stamp tray and two-tool rack
+were inspected in the browser with injected DOM fixture states, *not* reached
+naturally in gameplay; `after-p3-simulated-fixtures.png` is explicitly a
+simulation. The real 1/3 streak was reached during the draw. A fully active
+Final Call and the whole viewport sweep should be revisited in Phase 7. No real
+touch device, screen reader, formal contrast audit, or 200% text scaling audit
+was available. The legacy collision probe was updated to use the real fixture
+selectors; its overlapping Inspector-kit and header bounding boxes include
+empty flex space and require visual inspection, not an unconditional pass.
+No original `TODO.md` checklist was changed; the recorded original next task
+remains Phase 5 after Art Phase 7.
