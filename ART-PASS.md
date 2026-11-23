@@ -433,7 +433,7 @@ every capture in this document is the actual build.
 | 1 — Research and visual plan | **Done** (this document) |
 | 2 — Carriage and table composition | **Done** — see §5.1 |
 | 3 — Physical HUD and ticket art | **Done** — see §5.2 |
-| 4 — Cloaked Inspector | not started |
+| 4 — Cloaked Inspector | **Done** — see §5.3 |
 | 5 — Inspector animation | not started |
 | 6 — PS1 rendering pass | not started |
 | 7 — Visual QA and return to original task | not started |
@@ -591,3 +591,48 @@ selectors; its overlapping Inspector-kit and header bounding boxes include
 empty flex space and require visual inspection, not an unconditional pass.
 No original `TODO.md` checklist was changed; the recorded original next task
 remains Phase 5 after Art Phase 7.
+
+
+### 5.3 Art Phase 4 — cloaked Inspector
+
+**Built.** Replaced the former exposed face, eyes, hands, buttoned coat and
+watch chain with one enclosing procedural cloak. A 104 × 70 source-pixel
+silhouette has a raised hood, broad shoulders, restrained cool edge light and
+long angular folds which continue behind the tabletop. The hood origin and all
+HUD anchors remain unchanged. The hood opening is a contiguous, pure-black
+void; it is restored after atmospheric and optional software post-processing so
+mood lighting and reflections cannot paint a face into it. The existing small
+breathing/head-tilt idle remains; its former hand-lift component was removed
+because there is no exposed hand. Event-specific poses are **not** part of this
+phase. `docs/art-direction.md` now describes the cloak instead of the old face.
+No rules, AI, progression, dialogue, saves or input code was changed.
+
+**Research applied.** Re-read the attached game-art skill and applied its
+source-resolution, silhouette/staging and value-first principles; the original
+art-pass research (§2.2) calls for a black void framed by cool outer cloth,
+not a lit character. The artwork remains procedural and uses the locked palette;
+no reference character or binary game asset was imported.
+
+**Actually verified.** `npm test` passed **42/42**, including three new cloak
+contract tests for the cloth-only sprite, broad silhouette and continuous void,
+existing fan layout checks, and final black-paint order across moods/post modes.
+Chromium screenshots at 1280×800, 1280×720 and 390×844 were inspected with the
+HUD and at 1280×800 with HUD hidden; the cloak reaches behind the far table and
+the hood remains clear of the fan. An actual Canvas2D pixel probe checked all
+hood-opening source pixels across **192 combinations** of wide/portrait,
+warm/neutral/cold, reduced motion on/off, four idle times, 1×/2× source scale,
+and software post on/off: all were black and above the far-fan anchor. Browser
+checks at 390×844 and 1280×800 confirmed the score was visible, the Inspector
+card was hit-testable, Tab/arrow focus worked, a real draw advanced to Offer,
+and the Pixel and reduced-motion toggles were usable; no page errors were
+reported. Pixel-off plus reduced-motion screenshots were also inspected.
+
+**Captures:** `art-pass/after-p4-desktop.png`, `after-p4-phone.png` (full
+page), `after-p4-scene.png` (HUD hidden). These are documentation only, not
+runtime assets. The separate `tests/browser.html` runner could not start: its
+suite imports include `node:assert/strict`, `node:fs` and `node:path`, which a
+browser cannot load. This pre-existing infrastructure issue was not changed in
+this art-only phase; the Node suite and the real-browser checks above did run.
+No real touch device, screen reader, or exhaustive display and contrast audit
+was available; final cross-device/animation QA remains Art Phase 7. The original `TODO.md` is unchanged and its recorded next task remains
+Phase 5 after Art Phase 7.
