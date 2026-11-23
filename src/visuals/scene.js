@@ -684,7 +684,7 @@ export function describeInspectorSprite({ breathing = false, headTilt = 0 } = {}
  * table and scaled by hand (not by the 3D projection) so his pixel grid stays
  * perfectly aligned to the internal resolution.
  */
-function drawInspector(ctx, cam, { time, reducedMotion, mood }) {
+function drawInspector(ctx, cam, { time, reducedMotion, mood, pose }) {
   const anchorWorld = [0, 0.80, 1.66];
   const v = toView(cam, anchorWorld);
   if (v[2] < NEAR_Z) return null;
@@ -700,7 +700,10 @@ function drawInspector(ctx, cam, { time, reducedMotion, mood }) {
 
   const originX = Math.round(base[0] - SPRITE_WIDTH / 2);
   // Preserve the old hood origin; the extended hem now reaches behind the table.
-  const originY = Math.round(base[1] - INSPECTOR_TOP_OFFSET + 14);
+  const originY = Math.round(base[1] - INSPECTOR_TOP_OFFSET + 14 + (reducedMotion ? 0 : (pose?.y || 0)));
+  // Gently move only the outer lower cloak, leaving hood and hem anchored.
+  const sleeveShift = (x, y) => reducedMotion || y < 35 || y > 58 ? 0
+    : Math.round((pose?.sleeve || 0) * (x < SPRITE_WIDTH / 2 ? -1 : 1));
 
   // Contact shadow under the coat so he sits in the space instead of floating.
   ctx.save();
@@ -744,7 +747,7 @@ function drawInspector(ctx, cam, { time, reducedMotion, mood }) {
     else if (mood === "warm") c = mix(c, rgb("amber0"), 0.055);
     const [r, g, b] = ditherColor(c, originX + run.x, originY + run.y);
     ctx.fillStyle = `rgb(${r | 0},${g | 0},${b | 0})`;
-    ctx.fillRect(originX + run.x, originY + run.y, run.w, 1);
+    ctx.fillRect(originX + run.x + sleeveShift(run.x, run.y), originY + run.y, run.w, 1);
   }
 
   // Second pass: paint the rim highlight on the silhouette edge. Deliberately
@@ -752,7 +755,7 @@ function drawInspector(ctx, cam, { time, reducedMotion, mood }) {
   ctx.fillStyle = "rgb(58,78,96)";
   for (const key of rimPixels) {
     const [rx, ry] = key.split(",").map(Number);
-    ctx.fillRect(originX + rx, originY + ry, 1, 1);
+    ctx.fillRect(originX + rx + sleeveShift(rx, ry), originY + ry, 1, 1);
   }
 
   return { x: originX, y: originY, width: SPRITE_WIDTH, height: SPRITE_HEIGHT, voidRuns: frame.voidRuns };
@@ -1037,7 +1040,7 @@ export function drawScene(ctx, opts = {}) {
 
   // ---- LAYER 3: Inspector (cloak runs below the table line; the table
   //      is drawn after him, so his lower body is occluded by it) --------
-  const sprite = drawInspector(ctx, cam, { time, reducedMotion, mood });
+  const sprite = drawInspector(ctx, cam, { time, reducedMotion, mood, pose: opts.inspectorPose });
   drawInspectorReflection(ctx, cam, sprite, windowRect);
 
   // ---- LAYER 4: the table, which occludes the cloak -------------------

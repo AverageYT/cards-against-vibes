@@ -434,7 +434,7 @@ every capture in this document is the actual build.
 | 2 — Carriage and table composition | **Done** — see §5.1 |
 | 3 — Physical HUD and ticket art | **Done** — see §5.2 |
 | 4 — Cloaked Inspector | **Done** — see §5.3 |
-| 5 — Inspector animation | not started |
+| 5 — Inspector animation | **Done** — see §5.4 |
 | 6 — PS1 rendering pass | not started |
 | 7 — Visual QA and return to original task | not started |
 
@@ -636,3 +636,33 @@ this art-only phase; the Node suite and the real-browser checks above did run.
 No real touch device, screen reader, or exhaustive display and contrast audit
 was available; final cross-device/animation QA remains Art Phase 7. The original `TODO.md` is unchanged and its recorded next task remains
 Phase 5 after Art Phase 7.
+
+### 5.4 Art Phase 5 — Inspector animation
+
+**Done.** The existing Canvas2D cloak now has near-still idle, a brief offer
+rise, a draw dip with a restrained outer-sleeve shift, and a small public
+resolution hop with a soft landing. Keyframes use the equivalent of
+`cubic-bezier(0.42, 0, 0.58, 1)`; the hop peaks at 2.25 source pixels
+(about 9 pixels at 4× desktop scale) and settles in 290 ms. The cloak is
+still painted before the table, and the post-effect black opening is repainted
+at the same transformed origin. Reduced motion suppresses the pose motion.
+New poses retarget from the current position; leaving a duel resets them.
+
+Only public observer phase, actor, turn/offer identifiers, and the displayed
+public resolution drive these effects. They are timer-free, cosmetic, and do
+not change controller timing or input. No new runtime assets or dependencies.
+
+**Checks actually run:** `npm test` 44/44; `git diff --check`; Chromium
+1280×800 and 390×844 real draw/commit interaction (instrumented pose calls
+observed offer, reaction, draw, reaction; no page errors), keyboard focus and
+fan navigation, score visibility, soft and reduced toggles. A further 24
+Canvas2D checks covered wide/portrait, source scales 1/2, software post on/off,
+and three pose extremes: the void remained black and above the far fan. A
+magnified desktop hop frame was visually inspected. The test instrumentation
+was temporary and is not shipped.
+
+**Limitations:** the pose-extreme pixel checks and magnified frame are synthetic,
+not a GPU-framebuffer colour assertion or a real-device animation review. No
+physical touch device or full accessibility audit was used; the existing
+browser test harness cannot run Node-only imports (see §5.3). Phase 6 remains
+the next art phase; original `TODO.md` Phase 5 remains next after Art Phase 7.

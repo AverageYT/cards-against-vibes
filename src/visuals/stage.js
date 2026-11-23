@@ -319,7 +319,7 @@ export function mountStage({
 
     // Throttle to ~30fps: the look is a filmic low-rate image, and it keeps
     // phones cool. Reduced motion drops it further.
-    const descriptor = getDescriptor() || {};
+    const descriptor = getDescriptor(now) || {};
     const reduced = Boolean(descriptor.reducedMotion);
     const minInterval = reduced ? 120 : 33;
     if (now - lastDrawAt >= minInterval) {
@@ -336,6 +336,7 @@ export function mountStage({
         reducedMotion: reduced,
         mood: descriptor.mood || "neutral",
         framing: descriptor.framing || "wide",
+        inspectorPose: descriptor.inspectorPose,
         ditherStrength: 0, // the stage shader owns dithering
         scanlines: false,
         vignette: 0,
