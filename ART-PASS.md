@@ -1,6 +1,8 @@
 # ART-PASS.md — *The Unlisted*, phased art overhaul
 
-Working log for the eight art phases. The original build plan stays in
+**Status: complete.** Resume the original `TODO.md` at Phase 5; its checklist remains unchanged.
+
+Working log for the art phases. The original build plan stays in
 [`TODO.md`](./TODO.md) and is **not** replaced, restarted, or reordered by this
 document.
 
@@ -442,7 +444,7 @@ every capture in this document is the actual build.
 | 4 — Cloaked Inspector | **Done** — see §5.3 |
 | 5 — Inspector animation | **Done** — see §5.4 |
 | 6 — PS1 rendering pass | **Done** — see §5.5 |
-| 7 — Visual QA and return to original task | not started |
+| 7 — Visual QA and return to original task | **Done** — see §5.6 |
 
 ### 5.1 Phase 2 — carriage and table composition
 
@@ -713,3 +715,74 @@ accessibility. The browser-only `tests/browser.html` limitation described in
 §5.3 remains. The black-frame check samples nine positions; it is a defensive
 heuristic, not a guarantee against every possible rendering failure. Art Phase 7
 is next; original `TODO.md` Phase 5 remains next after Art Phase 7.
+
+### 5.6 Art Phase 7 — visual QA and handoff
+
+**Art pass complete.** No game rules, AI, progression, dialogue, saves or
+controller input were changed. `TODO.md` is unchanged from the branch base;
+its next unfinished task is **Phase 5 — Story, Inspectable Items & Inspector
+Dialogue**. Do not restart the plan. Original Phase 4's human keyboard-traversal
+check and original Phase 5/6 completion checks remain open.
+
+**Real Final Call and populated fan:** in an ordinary fresh run with seed
+`QA-121`, select opponent slot #2, commit, select slot #4, commit. On turn 5,
+Final Call was actually active with six opponent tickets (five legal draw
+buttons and a visibly locked, labelled sixth) and five player tickets. A legal
+draw cleared the call. This is a real engine state, not an injected DOM mock;
+it is a populated hand, **not** a claim to have tested the maximum possible
+hand size. Captured at 1280×800 and 390×844, pixel on and off:
+
+- [Desktop pixel](art-pass/after-p7-final-1280-pixel.png) / [desktop soft](art-pass/after-p7-final-1280-soft.png)
+- [Phone pixel](art-pass/after-p7-final-390-pixel.png) / [phone soft](art-pass/after-p7-final-390-soft.png)
+
+**Configured-loadout stress:** to revisit Phase 3's synthetic fixture concern,
+a temporary browser harness called the real controller with three starting
+Stamps and both Keepsakes (a configured test setup, not organically earned
+progression). At seed `QA-121` the engine produced seven player and six
+opponent tickets, three populated wells and two tools. The real Inspection
+Window entered targeting and resolved. With seed `QA-5`, both Gauge and Check
+Edge were used and became spent on desktop and phone. Captures of the configured
+setup: [desktop](art-pass/after-p7-configured-1280.png) /
+[phone](art-pass/after-p7-configured-390.png). These and all `art-pass/` PNGs
+are documentation, not runtime assets.
+
+**QA fixes:** the six-card fan covered part of the desktop deal counter, and
+the seven-card hand overlapped the ledger, bell and lengthy Stamp descriptions.
+The counter is raised, the ledger and bell moved to the sides, and desktop
+Stamp wells compacted. Full descriptions stay in the DOM/accessibility tree;
+on desktop they appear on hover, or together while a tray control has keyboard
+focus. Their popups do not take pointer events. Narrow layouts continue to show
+full descriptions in flow. The stamp header sits beside the wells. These are
+presentation-only changes, not action or turn changes.
+
+**Checks actually run:**
+
+- `npm test` **46/46**, and `git diff --check` clean.
+- Chromium/SwiftShader at 1280×720, 1280×800, 2560×1080, 800×720,
+  390×844 and 1080×2340: real Final Call, five legal card centre hit-tests,
+  labelled locked card, arrow-key focus and outline, manifest opening, and no
+  page errors. On scrolling layouts the score is in the top bar and can be
+  offscreen while the fan is in view. Configured seven-card layout bounding-box
+  checks found no fan intersection with the ledger, bell, stamp header/tray,
+  or score in this sweep. At desktop, all Stamp descriptions appeared on tray
+  focus and did not intercept card hit-tests.
+- Full tutorial (pair, Unlisted, swap, commit, Inspection Window peek, winning
+  draw and transition to briefing) was exercised at 1280×800 and 390×844; phone
+  actions used emulated touch taps. No page errors.
+- Pixel on/off, reduced motion, fan interaction and unchanged selected anchor
+  rectangles were checked at desktop and phone. Normal WebGL and forced black,
+  shader-failure and unavailable-WebGL fallback paths were exercised again.
+
+**Known limitations / follow-up:** the real Final Call showed the prior
+Inspector-commit notice in the turn slip instead of the more explanatory Final
+Call prompt, even though the active bell, exposed locked card, accessible lock
+label and legal actions were correct. This pre-existing notice precedence was
+not changed in an art-only phase. Desktop Stamp descriptions need hover or a
+focused tray control; discoverability with a large touch-only screen or with no
+focusable Stamp needs human accessibility review. The open tooltip receipts may
+temporarily cover artwork/cards visually, although they do not intercept clicks.
+No real touchscreen, physical GPU, screen reader, audio listening, full
+keyboard-only run, exhaustive contrast/zoom or maximum-hand-size test was run.
+`tests/browser.html` remains unable to load its Node-only imports (§5.3).
+Original Phase 6 remains responsible for comprehensive end-to-end, accessibility,
+lifecycle and deployment QA.
