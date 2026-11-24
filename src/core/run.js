@@ -1758,6 +1758,12 @@ export function createRunController({
     return duelState ? exportReplay(duelState) : null;
   }
 
+  // Dialogue may consume only this aggregate of legally observed player draws.
+  function getInspectorHabitSummary() {
+    const mem = inspectorAgent.getMemory();
+    return { totalObservations: mem.getDetectedPattern().observations, drawBucketProbs: mem.getDrawBucketProbs() };
+  }
+
   function getInspectorMemorySnapshot() {
     const mem = inspectorAgent.getMemory();
     return {
@@ -1816,6 +1822,7 @@ export function createRunController({
     getSnapshot,
     getActiveDuelReplay,
     getInspectorMemorySnapshot,
+    getInspectorHabitSummary,
     getMetaStore: () => meta,
     subscribe,
     dispose,

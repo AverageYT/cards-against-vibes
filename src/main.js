@@ -7,6 +7,7 @@
 import { createRunController } from "./core/run.js";
 import { mountAppView } from "./ui/appView.js";
 import { mountPresentation } from "./ui/presentation.js";
+import { mountStory } from "./story/presentation.js";
 
 const TUTORIAL_STORAGE_KEY = "the_unlisted_tutorial_seen_v1";
 
@@ -88,6 +89,7 @@ mountAppView(controller, document);
 // motion cues, and procedural WebAudio. Mounted after the view so the first
 // render has already created the ticket/card DOM it decorates.
 mountPresentation({ doc: document, controller, storage });
+mountStory({ doc: document, controller });
 
 if (init.autoStartTutorial) {
   controller.startTutorial({ seed: init.seed });

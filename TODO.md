@@ -15,7 +15,7 @@ Source of truth for building and shipping **The Unlisted** for Hack Club Vibes.
 - [x] Full run: 4 carriage duels + Final Inspection, 3 lantern charges (early loss advance, boss rematch, defeat, victory), ≥6 Stamps with tradeoffs, ≥3 Carriage Conditions with expiry display, **beginner-friendly interactive tutorial (assumes zero knowledge of Old Maid or card games; simple step-by-step hands-on walkthrough of core rules + custom mechanics; skippable & replayable)**, seed entry/replay, restart *(Phase 3 — 8 Stamps, 4 Conditions, 5-stop run, 8-step interactive tutorial, seed replay & clean restart verified across 23/23 Node tests + 320-duel Stamp/Condition fuzz; browser clickthrough ready for human playtest)*
 - [x] Procedural **2.5D** railway-carriage tabletop art (procedural low-poly 3D carriage environment — scratched fold-down table, window, seats, brass lamp, rain & dark-blue/amber lighting — paired with a procedural 2D pixel-art sprite model of a hooded Inspector across the table, all rendered under a PS1-style pixel-art + ordered-dithering + color-banding shader with live toggle; WebGL shader with automatic Canvas fallback, zero external assets/CDN), sharp UI layer, title/table/reward/result screens, phone portrait + desktop layouts *(Phase 4 — 442-triangle low-poly carriage + procedurally composed 2D hooded Inspector, WebGL PS1 post pass with Canvas software-shader fallback, live pixelation toggle, 12 SVG emblems + Unlisted punch)*
 - [x] Procedural WebAudio (draw, flip/match, punch/stamp, lantern loss), mute & volume, reduced-motion mode, double-draw protection, full keyboard play *(Phase 4 — 14 synthesized cues + ambient train bed, M/P shortcuts, persistent mute/volume, reduced-motion profile, rapid-input lockout)**
-- [ ] Short intro, 2 distinct endings (defeat + rule-payoff victory), event-driven courteous Inspector dialogue (with real-pattern remarks, cooldowns, no repeats, skip/mute), ≥3 inspectable carriage items
+- [x] Short intro, 2 distinct endings (defeat + rule-payoff victory), event-driven courteous Inspector dialogue (with real-pattern remarks, cooldowns, no repeats, skip/mute), ≥3 inspectable carriage items *(Phase 5 — four objects; automated and browser checks in `docs/phase5-report.md`)*
 - [ ] Zero-build offline-ready static site deployable directly to GitHub Pages, `README.md` (30-sec how-to-play, deploy guide, file map, honest limitations)
 
 ### SHOULD SHIP
@@ -25,7 +25,7 @@ Source of truth for building and shipping **The Unlisted** for Hack Club Vibes.
 
 ### STRETCH
 - [x] Saved AI tier benchmark report (`docs/ai-benchmark.md`) *(Phase 2 — 36,000 paired duels across Tiers 1–5 and 6 fixed policies)*
-- [ ] Extra inspectable carriage lore items (4–5 total)
+- [x] Extra inspectable carriage lore items (4–5 total) *(Phase 5 — four items)*
 - [x] Extra dithering, window-rain reflection, and tactile card-motion polish *(Phase 4 — Bayer 4x4 + 5-bit banding, streaked rain with clinging droplets, 10% mirrored Inspector reflection, 10 cue animations)*
 
 ---
@@ -41,6 +41,7 @@ Source of truth for building and shipping **The Unlisted** for Hack Club Vibes.
 - `src/ai/` — `learner.js` (5-bucket normalized draw tracker with decay + smoothing), `inspector.js` (Tiers 1–5 + decision trace), `policies.js` (scripted benchmark bots)
 - `src/data/` — Easy-to-edit definitions: `tickets.js`, `stamps.js`, `conditions.js`, `carriages.js`, `dialogue.js`, `lore.js`, `palette.js`, `aiTuning.js`
 - `src/visuals/` — `scene.js` (procedural 2.5D carriage: low-poly 3D compartment/table/window/lamp geometry + 2D pixel-art hooded Inspector sprite model, window reflection & rain, rendered through a PS1 pixel-art + ordered Bayer dithering + quantized palette shader with pixelation toggle), `tickets.js` (procedural SVG emblems + Unlisted punch), `motion.js` (timed transitions + reduced-motion profiles), `stage.js` (WebGL PS1 post pass + software fallback + rAF lifecycle)
+- `src/story/` — Optional narrative presentation and public-event Inspector dialogue with learner-thresholded habit remarks
 - `src/audio/sound.js` — Procedural WebAudio effects + ambient train bed, mute & volume (persisted)
 - `src/ui/presentation.js` — Presentation controller: stage, ticket art, motion cues, audio controls (M/P), disposal
 - `tools/` — Dev-only PNG/SVG preview harnesses (not shipped, not imported by the game)
@@ -145,6 +146,7 @@ Source of truth for building and shipping **The Unlisted** for Hack Club Vibes.
 ---
 
 ### Phase 5 — Story, Inspectable Items & Inspector Dialogue
+- **Status**: Completed (51/51 Node tests; desktop and emulated-phone story/dialogue checks; see `docs/phase5-report.md` for limitations)
 - **Time budget**: ~0.5 day (Day 5 morning)
 - **Dependencies**: Phase 4
 - **Scope**:
@@ -154,9 +156,9 @@ Source of truth for building and shipping **The Unlisted** for Hack Club Vibes.
   - Event-driven courteous Inspector dialogue for first deal, early success, drawing the Unlisted, genuine AI-observed habit patterns, Final Call, Stamp rewards, and duel/run outcomes — with per-category and global cooldowns, no back-to-back repeats, strict no-hidden-card guarantee, non-obstructive placement, and skip/mute control.
 - **Review-loop comparison target**: *Buckshot Roulette* (terse opponent remarks that reinforce table presence without interrupting play).
 - **Completion checks**:
-  1. [ ] Intro, ≥3 inspectable carriage items between stops, Defeat ending, and Victory ending all render, advance, and skip cleanly, with zero gameplay rules hidden solely inside optional lore.
-  2. [ ] Dialogue engine tests verify triggers for all required events, enforce global + category cooldowns and zero consecutive repeats, and honor dialogue skip/mute.
-  3. [ ] Learning-remark tests confirm habit lines fire only when backed by actual thresholded `learner.js` bucket skew and never reference hidden ticket identities, and UI placement never overlaps or disables legal actions.
+  1. [x] Intro, ≥3 inspectable carriage items between stops, Defeat ending, and Victory ending all render, advance, and skip cleanly, with zero gameplay rules hidden solely inside optional lore.
+  2. [x] Dialogue engine tests verify triggers for all required events, enforce global + category cooldowns and zero consecutive repeats, and honor dialogue skip/mute.
+  3. [x] Learning-remark tests confirm habit lines fire only when backed by actual thresholded `learner.js` bucket skew and never reference hidden ticket identities, and UI placement never overlaps or disables legal actions.
 
 ---
 
