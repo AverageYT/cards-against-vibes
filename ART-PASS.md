@@ -84,6 +84,12 @@ rendering bug.
 
 ### 1.2 Two defects found in the existing pixelation pass
 
+**Phase 6 correction:** the original diagnosis below was a hypothesis, not a
+proven driver root cause. Later screenshots showed a visible live WebGL frame;
+readback after browser compositing can be black when the drawing buffer is not
+preserved. Phase 6 checks the framebuffer immediately after drawing and adds
+a guarded fallback; see §5.5.
+
 **(a) The WebGL post pass outputs pure black.** Reading back the live
 `#carriage-stage canvas` gives `[0,0,0,255]` at every sample. Isolated the fault
 to the texture upload of the low-res scene buffer:
@@ -435,7 +441,7 @@ every capture in this document is the actual build.
 | 3 — Physical HUD and ticket art | **Done** — see §5.2 |
 | 4 — Cloaked Inspector | **Done** — see §5.3 |
 | 5 — Inspector animation | **Done** — see §5.4 |
-| 6 — PS1 rendering pass | not started |
+| 6 — PS1 rendering pass | **Done** — see §5.5 |
 | 7 — Visual QA and return to original task | not started |
 
 ### 5.1 Phase 2 — carriage and table composition
@@ -666,3 +672,44 @@ not a GPU-framebuffer colour assertion or a real-device animation review. No
 physical touch device or full accessibility audit was used; the existing
 browser test harness cannot run Node-only imports (see §5.3). Phase 6 remains
 the next art phase; original `TODO.md` Phase 5 remains next after Art Phase 7.
+
+### 5.5 Art Phase 6 — PS1 rendering pass
+
+**Done.** The scene is authored at 320×180 and sent through one restrained
+4×4 Bayer / 5-bit channel post pass, nearest sampling, scanlines and vignette.
+The software path uses the same palette matrix and cool grade. The scene no
+longer receives an accidental extra 5-bit pass before the stage shader.
+Pixel-off instead renders a 640×360 source with linear sampling and bypasses the
+PS1 post; the separate DOM controls and live labels are never filtered. The
+soft-only screen glow was removed so it cannot wash over the black hood.
+The scene transform and fixture anchors do not depend on the toggle.
+
+For WebGL 1's NPOT textures, raw scene pixels are uploaded at both source sizes
+and `CLAMP_TO_EDGE` and non-mipmap nearest/linear filters are reasserted after
+each upload. Immediately after the first draw at each size, a small framebuffer
+probe detects a wholly black set of scene samples and switches to a new 2D
+canvas; a failed shader or upload also falls back. This is a guard for observed
+failure modes, not proof of the original suspected driver root cause in §1.2.
+A later read of a non-preserved WebGL framebuffer is not a valid visibility test.
+
+**Verification:** `npm test` 46/46 and `git diff --check`. Chromium/SwiftShader
+at 1280×800 and emulated touch 390×844: actual Pixel on/off screenshots inspected;
+fan, phase, score, and commit bounding boxes and text unchanged by the toggle;
+fan hit testing and a real draw worked, with no page errors. Reduced motion was
+on for the matched captures. Separately, a real browser mounted the stage with
+normal WebGL, forced black readback, forced shader compilation failure, and
+WebGL disabled: the first stayed WebGL across both sizes and the other three
+used one correctly hidden software canvas. Node tests also cover NPOT upload
+sizes, filtering, re-probing, upload failure, fallback, and disposal.
+
+Captures: [desktop pixel](art-pass/after-p6-desktop-pixel.png),
+[desktop soft](art-pass/after-p6-desktop-soft.png),
+[phone pixel](art-pass/after-p6-phone-pixel.png), and
+[phone soft](art-pass/after-p6-phone-soft.png). They are documentation only.
+
+**Not verified:** physical GPU/driver or physical touch-device behaviour,
+performance on low-end phones, exhaustive browser coverage, or comprehensive
+accessibility. The browser-only `tests/browser.html` limitation described in
+§5.3 remains. The black-frame check samples nine positions; it is a defensive
+heuristic, not a guarantee against every possible rendering failure. Art Phase 7
+is next; original `TODO.md` Phase 5 remains next after Art Phase 7.

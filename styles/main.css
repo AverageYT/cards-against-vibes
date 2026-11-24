@@ -130,14 +130,6 @@ summary:focus-visible {
   filter: saturate(1.02);
 }
 
-.carriage-stage.is-soft::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse at 50% 42%, rgba(240, 191, 124, 0.12), transparent 62%);
-  mix-blend-mode: screen;
-}
-
 .stage-veil {
   position: fixed;
   inset: 0;

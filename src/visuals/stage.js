@@ -10,14 +10,14 @@
  *        - WebGL path: nearest texture sampling + ordered Bayer dithering +
  *          5-bit palette quantisation + scanlines + vignette, in one fragment
  *          shader.
- *        - Software path (no WebGL): integer nearest upscale onto a 2D canvas
- *          plus the same maths per pixel, at a reduced step to stay cheap.
+ *        - Software path (no WebGL): nearest upscale onto a 2D canvas plus
+ *          equivalent dither, quantisation, scanline, vignette and grade.
  *   4. Honour the live Pixelation toggle, reduced-motion, and full disposal.
  *
  * The stage never touches gameplay state; it only reads a render descriptor.
  */
 
-import { INTERNAL_SIZE, PS1_CHANNEL_LEVELS } from "../data/palette.js";
+import { BAYER_4X4, INTERNAL_SIZE, PS1_CHANNEL_LEVELS } from "../data/palette.js";
 import { drawScene } from "./scene.js";
 import { sceneTransform } from "./layout.js";
 
@@ -41,6 +41,7 @@ precision mediump float;
 uniform sampler2D uScene;
 uniform vec2 uSceneSize;
 uniform vec2 uOutSize;
+uniform float uPixelation;
 uniform float uDither;
 uniform float uLevels;
 uniform float uScanline;
@@ -64,17 +65,22 @@ float bayer4(vec2 p) {
 }
 
 void main() {
+  // Soft mode bypasses the PS1 post pass; the texture uses linear filtering.
+  if (uPixelation < 0.5) {
+    gl_FragColor = vec4(texture2D(uScene, vUv).rgb, 1.0);
+    return;
+  }
   // Nearest sampling keeps every authored pixel on the grid.
   vec2 texel = floor(vUv * uSceneSize) + 0.5;
   vec3 c = texture2D(uScene, texel / uSceneSize).rgb;
 
   // Ordered dithering then channel quantisation (PS1 15-bit colour).
   float step = 1.0 / (uLevels - 1.0);
-  float threshold = bayer4(gl_FragCoord.xy) * uDither;
+  float threshold = bayer4(floor(vUv * uOutSize)) * uDither;
   c = floor((c + threshold * step) / step + 0.5) * step;
 
   // Scanlines every other output row.
-  float scan = 1.0 - uScanline * mod(floor(gl_FragCoord.y), 2.0);
+  float scan = 1.0 - uScanline * mod(floor(vUv.y * uOutSize.y), 2.0);
   c *= scan;
 
   // Vignette toward the ink frame.
@@ -113,13 +119,26 @@ function createGlPipeline(canvas) {
 
   const vs = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
   const fs = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
-  if (!vs || !fs) return null;
+  if (!vs || !fs) {
+    if (vs) gl.deleteShader(vs);
+    if (fs) gl.deleteShader(fs);
+    return null;
+  }
   const program = gl.createProgram();
-  if (!program) return null;
+  if (!program) {
+    gl.deleteShader(vs);
+    gl.deleteShader(fs);
+    return null;
+  }
   gl.attachShader(program, vs);
   gl.attachShader(program, fs);
   gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    gl.deleteProgram(program);
+    gl.deleteShader(vs);
+    gl.deleteShader(fs);
+    return null;
+  }
   gl.useProgram(program);
 
   const buffer = gl.createBuffer();
@@ -140,6 +159,7 @@ function createGlPipeline(canvas) {
     scene: gl.getUniformLocation(program, "uScene"),
     sceneSize: gl.getUniformLocation(program, "uSceneSize"),
     outSize: gl.getUniformLocation(program, "uOutSize"),
+    pixelation: gl.getUniformLocation(program, "uPixelation"),
     dither: gl.getUniformLocation(program, "uDither"),
     levels: gl.getUniformLocation(program, "uLevels"),
     scanline: gl.getUniformLocation(program, "uScanline"),
@@ -159,8 +179,17 @@ function createGlPipeline(canvas) {
       const rect = fit || { width, height, offsetX: 0, offsetY: 0 };
       gl.viewport(rect.offsetX, height - rect.offsetY - rect.height, rect.width, rect.height);
       gl.bindTexture(gl.TEXTURE_2D, texture);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, buffer);
+      // Upload raw top-down pixels. Both source sizes are NPOT in WebGL 1:
+      // clamp both axes and use non-mipmap filters after every reallocation.
+      const pixels = buffer.getContext("2d").getImageData(0, 0, bufferWidth, bufferHeight);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, bufferWidth, bufferHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels.data);
+      const filter = settings.pixelation ? gl.NEAREST : gl.LINEAR;
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.uniform1i(uniforms.scene, 0);
+      gl.uniform1f(uniforms.pixelation, settings.pixelation ? 1 : 0);
       gl.uniform2f(uniforms.sceneSize, bufferWidth, bufferHeight);
       gl.uniform2f(uniforms.outSize, rect.width, rect.height);
       gl.uniform1f(uniforms.dither, settings.dither);
@@ -169,6 +198,20 @@ function createGlPipeline(canvas) {
       gl.uniform1f(uniforms.vignette, settings.vignette);
       gl.uniform1f(uniforms.time, time);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    },
+    // Read immediately after drawing: the default WebGL framebuffer may be
+    // discarded after compositing, so later readback is not a reliable probe.
+    hasVisiblePixels(width, height, fit) {
+      const pixel = new Uint8Array(4);
+      for (const fy of [0.25, 0.5, 0.75]) {
+        for (const fx of [0.25, 0.5, 0.75]) {
+          const x = Math.min(width - 1, Math.floor(fit.offsetX + fit.width * fx));
+          const y = Math.min(height - 1, Math.floor(height - fit.offsetY - fit.height * fy));
+          gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+          if (pixel[0] || pixel[1] || pixel[2]) return true;
+        }
+      }
+      return false;
     },
     dispose() {
       gl.useProgram(null);
@@ -194,7 +237,6 @@ function renderSoftware(ctx, buffer, bufferWidth, bufferHeight, dest, settings) 
   const dither = settings.dither;
   const vignette = settings.vignette;
   const scanline = settings.scanlines ? 0.07 : 0;
-  const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 
   // Nearest sampling from the 320x180 buffer straight onto the destination, so
   // this path is correct for any viewport shape without knowing about offsets.
@@ -205,14 +247,14 @@ function renderSoftware(ctx, buffer, bufferWidth, bufferHeight, dest, settings) 
       const sx = Math.min(bufferWidth - 1, ((x / width) * bufferWidth) | 0);
       const si = (sy * bufferWidth + sx) * 4;
       const di = (y * width + x) * 4;
-      const bayer = BAYER[(y % 4) * 4 + (x % 4)] / 16 - 0.46875;
+      const bayer = BAYER_4X4[(y % 4) * 4 + (x % 4)];
       const nx = (x / width) * 2 - 1;
       const vig = 1 - Math.min(1, nx * nx * 0.72 + ny * ny * 0.5) * vignette;
       const scan = (y & 1) === 1 ? 1 - scanline : 1;
       for (let k = 0; k < 3; k += 1) {
         let c = s[si + k] / 255 + bayer * dither * step / 255;
         c = Math.round(c * (levels - 1)) / (levels - 1);
-        d[di + k] = Math.max(0, Math.min(255, c * 255 * vig * scan));
+        d[di + k] = Math.max(0, Math.min(255, c * 255 * vig * scan * [0.97, 0.99, 1.03][k]));
       }
       d[di + 3] = 255;
     }
@@ -257,7 +299,7 @@ export function mountStage({
   if (!canCanvas) return null;
 
   // Visible canvas (either the WebGL surface or the software target).
-  const display = doc.createElement("canvas");
+  let display = doc.createElement("canvas");
   display.className = "stage-display";
   display.setAttribute("aria-hidden", "true");
   container.appendChild(display);
@@ -284,9 +326,24 @@ export function mountStage({
       displayCtx = null;
     }
   }
-  const pipeline = gl || (displayCtx ? { kind: "software" } : null);
+  // A canvas that acquired WebGL cannot later acquire 2D, even if shader
+  // compilation failed. Replace it before trying the software renderer.
+  if (!gl && !displayCtx) {
+    const replacement = doc.createElement("canvas");
+    replacement.className = "stage-display";
+    replacement.setAttribute("aria-hidden", "true");
+    try { displayCtx = replacement.getContext("2d"); } catch { displayCtx = null; }
+    if (displayCtx) {
+      container.replaceChild(replacement, display);
+      display = replacement;
+    }
+  }
+  let pipeline = gl || (displayCtx ? { kind: "software" } : null);
 
-  if (!bufferCtx || !pipeline) return null;
+  if (!bufferCtx || !pipeline) {
+    if (display.parentNode) display.parentNode.removeChild(display);
+    return null;
+  }
 
   let settings = { ...DEFAULT_SETTINGS };
   let disposed = false;
@@ -296,6 +353,24 @@ export function mountStage({
   let lastDrawAt = -Infinity;
   let visible = true;
   let size = { width: INTERNAL_SIZE.width, height: INTERNAL_SIZE.height };
+  let checkedBufferSize = "";
+
+  function switchToSoftware() {
+    const replacement = doc.createElement("canvas");
+    replacement.className = "stage-display";
+    replacement.setAttribute("aria-hidden", "true");
+    let ctx;
+    try { ctx = replacement.getContext("2d"); } catch { return false; }
+    if (!ctx) return false;
+    replacement.width = size.width;
+    replacement.height = size.height;
+    container.replaceChild(replacement, display);
+    pipeline.dispose();
+    display = replacement;
+    displayCtx = ctx;
+    pipeline = { kind: "software" };
+    return true;
+  }
 
   function resize() {
     const dpr = 1; // The art is intentionally low-res; the CSS upscales it.
@@ -337,10 +412,7 @@ export function mountStage({
         mood: descriptor.mood || "neutral",
         framing: descriptor.framing || "wide",
         inspectorPose: descriptor.inspectorPose,
-        ditherStrength: 0, // the stage shader owns dithering
-        scanlines: false,
-        vignette: 0,
-        grain: 0,
+        post: false, // exactly one post pass, on the display, and none in soft mode
         scale,
       });
       if (resizeNeeded()) resize();
@@ -349,17 +421,27 @@ export function mountStage({
       // The same projection places the DOM fixtures (see presentation.js).
       const fit = sceneTransform(size.width, size.height);
       if (pipeline.kind === "webgl") {
-        pipeline.draw({
-          buffer,
-          bufferWidth: bw,
-          bufferHeight: bh,
-          width: size.width,
-          height: size.height,
-          fit,
-          settings: { ...settings, scanlines: settings.scanlines && settings.pixelation },
-          time: elapsed,
-        });
-      } else if (displayCtx) {
+        try {
+          pipeline.draw({
+            buffer,
+            bufferWidth: bw,
+            bufferHeight: bh,
+            width: size.width,
+            height: size.height,
+            fit,
+            settings: { ...settings, scanlines: settings.scanlines && settings.pixelation },
+            time: elapsed,
+          });
+          const key = `${bw}x${bh}`;
+          if (key !== checkedBufferSize) {
+            checkedBufferSize = key;
+            if (!pipeline.hasVisiblePixels(size.width, size.height, fit)) switchToSoftware();
+          }
+        } catch {
+          switchToSoftware();
+        }
+      }
+      if (pipeline.kind === "software" && displayCtx) {
         // Letterbox: the scene is authored 16:9, so a tall phone viewport must
         // not stretch it. Cover the frame with the scene's own ink tone and
         // draw the true aspect ratio centred, matching the background so the
@@ -415,7 +497,7 @@ export function mountStage({
     get isActive() {
       return !disposed;
     },
-    canvas: display,
+    get canvas() { return display; },
     setSettings(next = {}) {
       settings = { ...settings, ...next };
       lastDrawAt = -Infinity;
