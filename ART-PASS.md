@@ -1,6 +1,8 @@
 # ART-PASS.md — *The Unlisted*, phased art overhaul
 
-Working log for the eight art phases. The original build plan stays in
+**Status: complete.** Resume the original `TODO.md` at Phase 5; its checklist remains unchanged.
+
+Working log for the art phases. The original build plan stays in
 [`TODO.md`](./TODO.md) and is **not** replaced, restarted, or reordered by this
 document.
 
@@ -83,6 +85,12 @@ the 320×180 carriage is therefore behind an opaque sheet.
 rendering bug.
 
 ### 1.2 Two defects found in the existing pixelation pass
+
+**Phase 6 correction:** the original diagnosis below was a hypothesis, not a
+proven driver root cause. Later screenshots showed a visible live WebGL frame;
+readback after browser compositing can be black when the drawing buffer is not
+preserved. Phase 6 checks the framebuffer immediately after drawing and adds
+a guarded fallback; see §5.5.
 
 **(a) The WebGL post pass outputs pure black.** Reading back the live
 `#carriage-stage canvas` gives `[0,0,0,255]` at every sample. Isolated the fault
@@ -433,10 +441,10 @@ every capture in this document is the actual build.
 | 1 — Research and visual plan | **Done** (this document) |
 | 2 — Carriage and table composition | **Done** — see §5.1 |
 | 3 — Physical HUD and ticket art | **Done** — see §5.2 |
-| 4 — Cloaked Inspector | not started |
-| 5 — Inspector animation | not started |
-| 6 — PS1 rendering pass | not started |
-| 7 — Visual QA and return to original task | not started |
+| 4 — Cloaked Inspector | **Done** — see §5.3 |
+| 5 — Inspector animation | **Done** — see §5.4 |
+| 6 — PS1 rendering pass | **Done** — see §5.5 |
+| 7 — Visual QA and return to original task | **Done** — see §5.6 |
 
 ### 5.1 Phase 2 — carriage and table composition
 
@@ -591,3 +599,190 @@ selectors; its overlapping Inspector-kit and header bounding boxes include
 empty flex space and require visual inspection, not an unconditional pass.
 No original `TODO.md` checklist was changed; the recorded original next task
 remains Phase 5 after Art Phase 7.
+
+
+### 5.3 Art Phase 4 — cloaked Inspector
+
+**Built.** Replaced the former exposed face, eyes, hands, buttoned coat and
+watch chain with one enclosing procedural cloak. A 104 × 70 source-pixel
+silhouette has a raised hood, broad shoulders, restrained cool edge light and
+long angular folds which continue behind the tabletop. The hood origin and all
+HUD anchors remain unchanged. The hood opening is a contiguous, pure-black
+void; it is restored after atmospheric and optional software post-processing so
+mood lighting and reflections cannot paint a face into it. The existing small
+breathing/head-tilt idle remains; its former hand-lift component was removed
+because there is no exposed hand. Event-specific poses are **not** part of this
+phase. `docs/art-direction.md` now describes the cloak instead of the old face.
+No rules, AI, progression, dialogue, saves or input code was changed.
+
+**Research applied.** Re-read the attached game-art skill and applied its
+source-resolution, silhouette/staging and value-first principles; the original
+art-pass research (§2.2) calls for a black void framed by cool outer cloth,
+not a lit character. The artwork remains procedural and uses the locked palette;
+no reference character or binary game asset was imported.
+
+**Actually verified.** `npm test` passed **42/42**, including three new cloak
+contract tests for the cloth-only sprite, broad silhouette and continuous void,
+existing fan layout checks, and final black-paint order across moods/post modes.
+Chromium screenshots at 1280×800, 1280×720 and 390×844 were inspected with the
+HUD and at 1280×800 with HUD hidden; the cloak reaches behind the far table and
+the hood remains clear of the fan. An actual Canvas2D pixel probe checked all
+hood-opening source pixels across **192 combinations** of wide/portrait,
+warm/neutral/cold, reduced motion on/off, four idle times, 1×/2× source scale,
+and software post on/off: all were black and above the far-fan anchor. Browser
+checks at 390×844 and 1280×800 confirmed the score was visible, the Inspector
+card was hit-testable, Tab/arrow focus worked, a real draw advanced to Offer,
+and the Pixel and reduced-motion toggles were usable; no page errors were
+reported. Pixel-off plus reduced-motion screenshots were also inspected.
+
+**Captures:** `art-pass/after-p4-desktop.png`, `after-p4-phone.png` (full
+page), `after-p4-scene.png` (HUD hidden). These are documentation only, not
+runtime assets. The separate `tests/browser.html` runner could not start: its
+suite imports include `node:assert/strict`, `node:fs` and `node:path`, which a
+browser cannot load. This pre-existing infrastructure issue was not changed in
+this art-only phase; the Node suite and the real-browser checks above did run.
+No real touch device, screen reader, or exhaustive display and contrast audit
+was available; final cross-device/animation QA remains Art Phase 7. The original `TODO.md` is unchanged and its recorded next task remains
+Phase 5 after Art Phase 7.
+
+### 5.4 Art Phase 5 — Inspector animation
+
+**Done.** The existing Canvas2D cloak now has near-still idle, a brief offer
+rise, a draw dip with a restrained outer-sleeve shift, and a small public
+resolution hop with a soft landing. Keyframes use the equivalent of
+`cubic-bezier(0.42, 0, 0.58, 1)`; the hop peaks at 2.25 source pixels
+(about 9 pixels at 4× desktop scale) and settles in 290 ms. The cloak is
+still painted before the table, and the post-effect black opening is repainted
+at the same transformed origin. Reduced motion suppresses the pose motion.
+New poses retarget from the current position; leaving a duel resets them.
+
+Only public observer phase, actor, turn/offer identifiers, and the displayed
+public resolution drive these effects. They are timer-free, cosmetic, and do
+not change controller timing or input. No new runtime assets or dependencies.
+
+**Checks actually run:** `npm test` 44/44; `git diff --check`; Chromium
+1280×800 and 390×844 real draw/commit interaction (instrumented pose calls
+observed offer, reaction, draw, reaction; no page errors), keyboard focus and
+fan navigation, score visibility, soft and reduced toggles. A further 24
+Canvas2D checks covered wide/portrait, source scales 1/2, software post on/off,
+and three pose extremes: the void remained black and above the far fan. A
+magnified desktop hop frame was visually inspected. The test instrumentation
+was temporary and is not shipped.
+
+**Limitations:** the pose-extreme pixel checks and magnified frame are synthetic,
+not a GPU-framebuffer colour assertion or a real-device animation review. No
+physical touch device or full accessibility audit was used; the existing
+browser test harness cannot run Node-only imports (see §5.3). Phase 6 remains
+the next art phase; original `TODO.md` Phase 5 remains next after Art Phase 7.
+
+### 5.5 Art Phase 6 — PS1 rendering pass
+
+**Done.** The scene is authored at 320×180 and sent through one restrained
+4×4 Bayer / 5-bit channel post pass, nearest sampling, scanlines and vignette.
+The software path uses the same palette matrix and cool grade. The scene no
+longer receives an accidental extra 5-bit pass before the stage shader.
+Pixel-off instead renders a 640×360 source with linear sampling and bypasses the
+PS1 post; the separate DOM controls and live labels are never filtered. The
+soft-only screen glow was removed so it cannot wash over the black hood.
+The scene transform and fixture anchors do not depend on the toggle.
+
+For WebGL 1's NPOT textures, raw scene pixels are uploaded at both source sizes
+and `CLAMP_TO_EDGE` and non-mipmap nearest/linear filters are reasserted after
+each upload. Immediately after the first draw at each size, a small framebuffer
+probe detects a wholly black set of scene samples and switches to a new 2D
+canvas; a failed shader or upload also falls back. This is a guard for observed
+failure modes, not proof of the original suspected driver root cause in §1.2.
+A later read of a non-preserved WebGL framebuffer is not a valid visibility test.
+
+**Verification:** `npm test` 46/46 and `git diff --check`. Chromium/SwiftShader
+at 1280×800 and emulated touch 390×844: actual Pixel on/off screenshots inspected;
+fan, phase, score, and commit bounding boxes and text unchanged by the toggle;
+fan hit testing and a real draw worked, with no page errors. Reduced motion was
+on for the matched captures. Separately, a real browser mounted the stage with
+normal WebGL, forced black readback, forced shader compilation failure, and
+WebGL disabled: the first stayed WebGL across both sizes and the other three
+used one correctly hidden software canvas. Node tests also cover NPOT upload
+sizes, filtering, re-probing, upload failure, fallback, and disposal.
+
+Captures: [desktop pixel](art-pass/after-p6-desktop-pixel.png),
+[desktop soft](art-pass/after-p6-desktop-soft.png),
+[phone pixel](art-pass/after-p6-phone-pixel.png), and
+[phone soft](art-pass/after-p6-phone-soft.png). They are documentation only.
+
+**Not verified:** physical GPU/driver or physical touch-device behaviour,
+performance on low-end phones, exhaustive browser coverage, or comprehensive
+accessibility. The browser-only `tests/browser.html` limitation described in
+§5.3 remains. The black-frame check samples nine positions; it is a defensive
+heuristic, not a guarantee against every possible rendering failure. Art Phase 7
+is next; original `TODO.md` Phase 5 remains next after Art Phase 7.
+
+### 5.6 Art Phase 7 — visual QA and handoff
+
+**Art pass complete.** No game rules, AI, progression, dialogue, saves or
+controller input were changed. `TODO.md` is unchanged from the branch base;
+its next unfinished task is **Phase 5 — Story, Inspectable Items & Inspector
+Dialogue**. Do not restart the plan. Original Phase 4's human keyboard-traversal
+check and original Phase 5/6 completion checks remain open.
+
+**Real Final Call and populated fan:** in an ordinary fresh run with seed
+`QA-121`, select opponent slot #2, commit, select slot #4, commit. On turn 5,
+Final Call was actually active with six opponent tickets (five legal draw
+buttons and a visibly locked, labelled sixth) and five player tickets. A legal
+draw cleared the call. This is a real engine state, not an injected DOM mock;
+it is a populated hand, **not** a claim to have tested the maximum possible
+hand size. Captured at 1280×800 and 390×844, pixel on and off:
+
+- [Desktop pixel](art-pass/after-p7-final-1280-pixel.png) / [desktop soft](art-pass/after-p7-final-1280-soft.png)
+- [Phone pixel](art-pass/after-p7-final-390-pixel.png) / [phone soft](art-pass/after-p7-final-390-soft.png)
+
+**Configured-loadout stress:** to revisit Phase 3's synthetic fixture concern,
+a temporary browser harness called the real controller with three starting
+Stamps and both Keepsakes (a configured test setup, not organically earned
+progression). At seed `QA-121` the engine produced seven player and six
+opponent tickets, three populated wells and two tools. The real Inspection
+Window entered targeting and resolved. With seed `QA-5`, both Gauge and Check
+Edge were used and became spent on desktop and phone. Captures of the configured
+setup: [desktop](art-pass/after-p7-configured-1280.png) /
+[phone](art-pass/after-p7-configured-390.png). These and all `art-pass/` PNGs
+are documentation, not runtime assets.
+
+**QA fixes:** the six-card fan covered part of the desktop deal counter, and
+the seven-card hand overlapped the ledger, bell and lengthy Stamp descriptions.
+The counter is raised, the ledger and bell moved to the sides, and desktop
+Stamp wells compacted. Full descriptions stay in the DOM/accessibility tree;
+on desktop they appear on hover, or together while a tray control has keyboard
+focus. Their popups do not take pointer events. Narrow layouts continue to show
+full descriptions in flow. The stamp header sits beside the wells. These are
+presentation-only changes, not action or turn changes.
+
+**Checks actually run:**
+
+- `npm test` **46/46**, and `git diff --check` clean.
+- Chromium/SwiftShader at 1280×720, 1280×800, 2560×1080, 800×720,
+  390×844 and 1080×2340: real Final Call, five legal card centre hit-tests,
+  labelled locked card, arrow-key focus and outline, manifest opening, and no
+  page errors. On scrolling layouts the score is in the top bar and can be
+  offscreen while the fan is in view. Configured seven-card layout bounding-box
+  checks found no fan intersection with the ledger, bell, stamp header/tray,
+  or score in this sweep. At desktop, all Stamp descriptions appeared on tray
+  focus and did not intercept card hit-tests.
+- Full tutorial (pair, Unlisted, swap, commit, Inspection Window peek, winning
+  draw and transition to briefing) was exercised at 1280×800 and 390×844; phone
+  actions used emulated touch taps. No page errors.
+- Pixel on/off, reduced motion, fan interaction and unchanged selected anchor
+  rectangles were checked at desktop and phone. Normal WebGL and forced black,
+  shader-failure and unavailable-WebGL fallback paths were exercised again.
+
+**Known limitations / follow-up:** the real Final Call showed the prior
+Inspector-commit notice in the turn slip instead of the more explanatory Final
+Call prompt, even though the active bell, exposed locked card, accessible lock
+label and legal actions were correct. This pre-existing notice precedence was
+not changed in an art-only phase. Desktop Stamp descriptions need hover or a
+focused tray control; discoverability with a large touch-only screen or with no
+focusable Stamp needs human accessibility review. The open tooltip receipts may
+temporarily cover artwork/cards visually, although they do not intercept clicks.
+No real touchscreen, physical GPU, screen reader, audio listening, full
+keyboard-only run, exhaustive contrast/zoom or maximum-hand-size test was run.
+`tests/browser.html` remains unable to load its Node-only imports (§5.3).
+Original Phase 6 remains responsible for comprehensive end-to-end, accessibility,
+lifecycle and deployment QA.

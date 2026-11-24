@@ -556,147 +556,75 @@ const SPRITE_KEYS = {
   C: "coat2",
   h: "coat3",
   H: "coat4",
-  f: "skin0",
-  F: "skin1",
-  G: "skin2",
-  b: "brass2",
-  B: "brass3",
-  r: "seal1",
-  e: "ink0",
+  // The opening is painted separately as pure black: no skin, eyes or face.
+  v: "ink0",
 };
 
-const SPRITE_WIDTH = 72;
-const SPRITE_HEIGHT = 56;
+// The taller hem extends behind the tabletop, without moving the existing hood
+// or the HUD anchors. The full sprite is still authored at the 320×180 grid.
+const SPRITE_WIDTH = 104;
+const SPRITE_HEIGHT = 70;
 const SPRITE_CX = SPRITE_WIDTH / 2;
+const INSPECTOR_TOP_OFFSET = 56;
 
-/**
- * Procedural pixel-art Inspector model.
- *
- * Built from primitives rather than hand-aligned ASCII so the silhouette is
- * exactly symmetric and the pixel grid is never violated:
- *   - hood: two concentric ellipses (outer felt, inner shadowed opening)
- *   - shoulders: a widened quadratic curve, wider than the hood (readability)
- *   - coat: a tapering trapezoid with a lighting ramp left -> right
- *   - face: brow-shadowed skin with two dark eye slits
- *
- * Everything is authored at 1 unit = 1 internal pixel (skill §5 consistency).
- */
+/** Build an enclosing hood and a broad, continuous cloak in cloth values only. */
 function buildInspectorGrid() {
   const grid = Array.from({ length: SPRITE_HEIGHT }, () => new Array(SPRITE_WIDTH).fill(null));
   const put = (x, y, key) => {
-    if (y < 0 || y >= SPRITE_HEIGHT || x < 0 || x >= SPRITE_WIDTH) return;
-    grid[y][x] = key;
+    if (y >= 0 && y < SPRITE_HEIGHT && x >= 0 && x < SPRITE_WIDTH) grid[y][x] = key;
   };
-
-  // --- Hood + coat silhouette -------------------------------------------
-  // Head centre sits above the shoulder line; body widens then tapers.
-  const headCy = 17;
-  const headCx = SPRITE_CX;
-  const hoodRx = 14;
-  const hoodRy = 14.6;
+  const cx = SPRITE_CX;
+  const hoodCy = 16;
+  const hoodRx = 16;
+  const hoodRy = 15;
 
   for (let y = 0; y < SPRITE_HEIGHT; y += 1) {
-    // Coat half-width: shoulders flare out at y=30, then close toward the hem.
-    let halfW;
-    if (y < 26) halfW = hoodRx - 1;
-    else if (y < 33) {
-      const t = (y - 26) / 7;
-      halfW = 11 + (25.5 - 11) * t * t;
-    } else {
-      const t = Math.min(1, (y - 33) / 23);
-      halfW = 25.5 - 13.5 * t * t;
-    }
-
-    // Inside the hood band only the hood is drawn; the coat starts below it.
-    for (let x = Math.floor(headCx - halfW); x <= Math.ceil(headCx + halfW); x += 1) {
-      const dx = (x + 0.5 - headCx) / halfW;
-      if (Math.abs(dx) > 1) continue;
-      const depth = Math.sqrt(Math.max(0, 1 - dx * dx)); // 1 centre, 0 edge
-      let key;
-      if (y < 26) {
-        const hoodDist =
-          ((x + 0.5 - headCx) / hoodRx) ** 2 + ((y + 0.5 - headCy) / hoodRy) ** 2;
-        if (hoodDist <= 1) {
-          // Hood felt with a left-lit rim.
-          if (hoodDist > 0.82) key = dx < -0.35 ? "H" : dx > 0.35 ? "C" : "h";
-          else key = dx < -0.2 ? "C" : "c";
-        } else if (y > 24) {
-          key = "C";
-        } else {
-          continue;
-        }
+    // Arch above, then a long shoulder slope into the cloak. The lower garment
+    // stays broad beyond the table edge; the table paints in front of the hem.
+    const hoodHalf = y < 26
+      ? hoodRx * Math.sqrt(Math.max(0, 1 - ((y - hoodCy) / hoodRy) ** 2))
+      : 0;
+    const shoulder = y < 22 ? 0 : y < 33
+      ? 13 + 34 * Math.sin(((y - 22) / 11) * Math.PI / 2)
+      : 47 - Math.min(4, (y - 33) * 0.11);
+    const half = Math.max(hoodHalf, shoulder);
+    if (half <= 0) continue;
+    for (let x = Math.ceil(cx - half); x <= Math.floor(cx + half); x += 1) {
+      const dx = x - cx;
+      const edge = half - Math.abs(dx);
+      let key = "c";
+      if (y < 25) {
+        // Hood cloth is a folded cowl, subtly brighter along its upper edge.
+        key = edge < 2 ? "C" : dx < -5 ? "C" : "c";
+        if (y < 8 && edge < 4) key = "h";
       } else {
-        // Coat lighting ramp: lit from the upper-left, ink shadow to the right.
-        key = depth > 0.72 ? (dx < -0.45 ? "h" : dx > 0.45 ? "c" : "C") : dx < -0.5 ? "C" : "c";
-        if (y > 47) key = dx < -0.2 ? "C" : "c";
+        // Long converging folds, never buttons, hands or human anatomy.
+        // Angular bands read as individual hanging lengths of heavy cloth.
+        const t = (y - 25) / (SPRITE_HEIGHT - 25);
+        const seam1 = -10 - 20 * t;
+        const seam2 = 8 + 13 * t;
+        const seam3 = 21 + 12 * t;
+        if (dx < seam1) key = "C";
+        else if (dx < seam1 + 3) key = "h";
+        else if (dx < seam2) key = "c";
+        else if (dx < seam2 + 3) key = "C";
+        else if (dx < seam3) key = "c";
+        else key = "C";
+        if (edge < 2) key = "c";
+        // A restrained shoulder seam catches the window light.
+        if (y >= 27 && y <= 32 && dx < -13 && dx > -half + 3) key = "h";
       }
       put(x, y, key);
     }
   }
 
-  // --- Hood opening & face ----------------------------------------------
-  const faceRx = 8.4;
-  const faceRy = 9.6;
-  const faceCy = 21.5;
-  for (let y = 0; y < SPRITE_HEIGHT; y += 1) {
-    for (let x = 0; x < SPRITE_WIDTH; x += 1) {
-      const fx = (x + 0.5 - headCx) / faceRx;
-      const fy = (y + 0.5 - faceCy) / faceRy;
-      const d = fx * fx + fy * fy;
-      if (d > 1) continue;
-      if (d > 0.7) {
-        put(x, y, "k"); // deep hood shadow at the opening rim
-      } else if (y < faceCy - 0.5) {
-        put(x, y, "f"); // brow shadow under the hood brim
-      } else if (y < faceCy + 2) {
-        put(x, y, fx < -0.4 ? "F" : "f");
-      } else {
-        put(x, y, "f");
-      }
-    }
+  // Featureless opening, recessed within a hood rim. Its outline is an oval
+  // tapered at the bottom; every interior pixel uses the same pure black key.
+  for (let y = 8; y <= 31; y += 1) {
+    const fy = (y - 19) / 12;
+    const rx = 10.3 * Math.sqrt(Math.max(0, 1 - fy * fy));
+    for (let x = Math.ceil(cx - rx); x <= Math.floor(cx + rx); x += 1) put(x, y, "v");
   }
-
-  // Brim shadow across the eyes: a single dark band, then the eye slits.
-  for (let x = Math.floor(headCx - 10); x < headCx + 10; x += 1) {
-    for (const yy of [18, 19, 20]) if (grid[yy] && (grid[yy][x] === "f" || grid[yy][x] === "F")) put(x, yy, "k");
-  }
-  // One-pixel eye slits set deep beneath the brim.
-  for (const ex of [-3, 3]) {
-    put(headCx + ex, 21, "e");
-    put(headCx + ex + 1, 21, "e");
-  }
-  // One cheekbone catch light on the lamp side only.
-  put(headCx - 4, 24, "F");
-  put(headCx - 5, 24, "F");
-
-  // --- Raised collar + under-hood shadow ---------------------------------
-  for (let x = Math.floor(headCx - 11); x < headCx + 11; x += 1) {
-    for (let y = 26; y < 30; y += 1) {
-      if (grid[y] && grid[y][x]) put(x, y, y === 26 ? "k" : x < headCx ? "h" : "C");
-    }
-  }
-
-  // --- Collar, buttons, chain ------------------------------------------
-  for (let x = Math.floor(headCx - 7); x < headCx + 7; x += 1) {
-    if (grid[29] && grid[29][x]) put(x, 29, x < headCx ? "h" : "C");
-  }
-  for (let i = 0; i < 5; i += 1) put(headCx + (i % 2 === 0 ? 0 : 1), 33 + i * 4, "b");
-  put(headCx - 5, 31, "B");
-  put(headCx + 5, 31, "b");
-  // Watch chain: a shallow brass arc across the coat front.
-  for (let i = 0; i < 7; i += 1) {
-    const cx = headCx - 8 + i * 2;
-    const cy = 36 + Math.round(Math.sin((i / 6) * Math.PI) * 2);
-    if (grid[cy] && grid[cy][cx] === "c") put(cx, cy, "B");
-  }
-
-  // --- Left hand resting on the table edge ------------------------------
-  const handY = 48;
-  const handX = headCx + 12;
-  for (let y = handY - 1; y <= handY + 1; y += 1) {
-    for (let x = handX; x < handX + 5; x += 1) put(x, y, y === handY - 1 ? "F" : "f");
-  }
-
   return grid;
 }
 
@@ -704,17 +632,16 @@ const SPRITE_GRID = buildInspectorGrid();
 
 /**
  * Compose one animation frame as horizontal runs (one fillRect per run).
- * Secondary action: 1px breathing, a 1px head tilt, and a hand lift.
+ * Keep the existing subtle idle shifts while treating the cloak as one garment.
  */
-function composeInspectorFrame({ breathing, headTilt, handLift }) {
+function composeInspectorFrame({ breathing, headTilt }) {
   const runs = [];
   const bodyShiftY = breathing ? 1 : 0;
 
   for (let y = 0; y < SPRITE_GRID.length; y += 1) {
-    const isHead = y < 27;
-    const isHand = y >= 46;
-    const dx = isHead || isHand ? headTilt : 0;
-    const dy = isHand ? handLift + bodyShiftY : isHead ? 0 : bodyShiftY;
+    const isHead = y < 32;
+    const dx = isHead ? headTilt : 0;
+    const dy = isHead ? 0 : bodyShiftY;
     const row = SPRITE_GRID[y];
     let runStart = -1;
     let runKey = null;
@@ -731,14 +658,25 @@ function composeInspectorFrame({ breathing, headTilt, handLift }) {
 }
 
 const FRAME_CACHE = new Map();
-function getInspectorFrame(breathing, headTilt, handLift) {
-  const key = `${breathing}|${headTilt}|${handLift}`;
+function getInspectorFrame(breathing, headTilt) {
+  const key = `${breathing}|${headTilt}`;
   let frame = FRAME_CACHE.get(key);
   if (!frame) {
-    frame = { runs: composeInspectorFrame({ breathing, headTilt, handLift }) };
+    const runs = composeInspectorFrame({ breathing, headTilt });
+    frame = { runs, voidRuns: runs.filter((run) => run.key === "v") };
     FRAME_CACHE.set(key, frame);
   }
   return frame;
+}
+
+/** A copy of the procedural sprite runs for art-contract and silhouette tests. */
+export function describeInspectorSprite({ breathing = false, headTilt = 0 } = {}) {
+  const frame = getInspectorFrame(Boolean(breathing), headTilt);
+  return {
+    width: SPRITE_WIDTH,
+    height: SPRITE_HEIGHT,
+    runs: frame.runs.map((run) => ({ ...run })),
+  };
 }
 
 /**
@@ -746,23 +684,26 @@ function getInspectorFrame(breathing, headTilt, handLift) {
  * table and scaled by hand (not by the 3D projection) so his pixel grid stays
  * perfectly aligned to the internal resolution.
  */
-function drawInspector(ctx, cam, { time, reducedMotion, mood }) {
+function drawInspector(ctx, cam, { time, reducedMotion, mood, pose }) {
   const anchorWorld = [0, 0.80, 1.66];
   const v = toView(cam, anchorWorld);
   if (v[2] < NEAR_Z) return null;
   const base = projectView(cam, v);
 
-  // Secondary action: 1px breathing (~0.25 Hz), occasional head tilt, hand lift.
+  // Existing idle: 1px breathing (~0.25 Hz) and occasional head tilt. The
+  // cloak is continuous, so its lower edge no longer behaves like a hand.
   const t = reducedMotion ? 0 : time;
   const breathing = Math.sin(t * 1.55) > 0.35;
   const tiltWave = Math.sin(t * 0.43);
   const headTilt = reducedMotion ? 0 : tiltWave > 0.55 ? 1 : tiltWave < -0.55 ? -1 : 0;
-  const handLift = reducedMotion ? 0 : Math.sin(t * 0.91) > 0.7 ? -1 : 0;
-  const frame = getInspectorFrame(breathing, headTilt, handLift);
+  const frame = getInspectorFrame(breathing, headTilt);
 
   const originX = Math.round(base[0] - SPRITE_WIDTH / 2);
-  // +14 pushes his hem below the table's far lip, so the table occludes it.
-  const originY = Math.round(base[1] - SPRITE_HEIGHT + 14);
+  // Preserve the old hood origin; the extended hem now reaches behind the table.
+  const originY = Math.round(base[1] - INSPECTOR_TOP_OFFSET + 14 + (reducedMotion ? 0 : (pose?.y || 0)));
+  // Gently move only the outer lower cloak, leaving hood and hem anchored.
+  const sleeveShift = (x, y) => reducedMotion || y < 35 || y > 58 ? 0
+    : Math.round((pose?.sleeve || 0) * (x < SPRITE_WIDTH / 2 ? -1 : 1));
 
   // Contact shadow under the coat so he sits in the space instead of floating.
   ctx.save();
@@ -786,33 +727,38 @@ function drawInspector(ctx, cam, { time, reducedMotion, mood }) {
     }
   }
   for (const [y, run] of rowFirstRun) {
-    // Only the upper hood catches the glass. Below that the coat is in the
-    // bench shadow, and rimming the whole edge looked like a neon outline.
-    if (y < 3 || y > 20) continue;
+    // One subdued pixel along the hood and shoulder edge, fading before the
+    // lower cloak meets the table; avoid a luminous outline around the hem.
+    if (y < 3 || y > 45) continue;
     rimPixels.add(`${run.x},${y}`);
   }
 
   for (const run of frame.runs) {
     const paletteId = SPRITE_KEYS[run.key];
     if (!paletteId) continue;
+    if (run.key === "v") {
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(originX + run.x, originY + run.y, run.w, 1);
+      continue;
+    }
     let c = rgb(paletteId);
     // He is one cold figure; the lamp only warms him slightly from upper-left.
-    if (mood === "cold") c = mix(c, rgb("rain1"), 0.26);
-    else if (mood === "warm") c = mix(c, rgb("amber0"), 0.16);
+    if (mood === "cold") c = mix(c, rgb("rain1"), 0.14);
+    else if (mood === "warm") c = mix(c, rgb("amber0"), 0.055);
     const [r, g, b] = ditherColor(c, originX + run.x, originY + run.y);
     ctx.fillStyle = `rgb(${r | 0},${g | 0},${b | 0})`;
-    ctx.fillRect(originX + run.x, originY + run.y, run.w, 1);
+    ctx.fillRect(originX + run.x + sleeveShift(run.x, run.y), originY + run.y, run.w, 1);
   }
 
   // Second pass: paint the rim highlight on the silhouette edge. Deliberately
   // below the glass' own value so it reads as reflected light, not an outline.
-  ctx.fillStyle = "rgb(74,100,126)";
+  ctx.fillStyle = "rgb(58,78,96)";
   for (const key of rimPixels) {
     const [rx, ry] = key.split(",").map(Number);
-    ctx.fillRect(originX + rx, originY + ry, 1, 1);
+    ctx.fillRect(originX + rx + sleeveShift(rx, ry), originY + ry, 1, 1);
   }
 
-  return { x: originX, y: originY, width: SPRITE_WIDTH, height: SPRITE_HEIGHT };
+  return { x: originX, y: originY, width: SPRITE_WIDTH, height: SPRITE_HEIGHT, voidRuns: frame.voidRuns };
 }
 
 /** Faint window-glass reflection of the Inspector, mirrored across the table. */
@@ -1094,7 +1040,7 @@ export function drawScene(ctx, opts = {}) {
 
   // ---- LAYER 3: Inspector (cloak runs below the table line; the table
   //      is drawn after him, so his lower body is occluded by it) --------
-  const sprite = drawInspector(ctx, cam, { time, reducedMotion, mood });
+  const sprite = drawInspector(ctx, cam, { time, reducedMotion, mood, pose: opts.inspectorPose });
   drawInspectorReflection(ctx, cam, sprite, windowRect);
 
   // ---- LAYER 4: the table, which occludes the cloak -------------------
@@ -1108,7 +1054,7 @@ export function drawScene(ctx, opts = {}) {
     ctx.fillStyle = "rgb(6,8,12)";
     const sx0 = Math.max(0, sprite.x + 10);
     const sw = Math.min(INTERNAL_SIZE.width - sx0, SPRITE_WIDTH - 20);
-    const sy = sprite.y + SPRITE_HEIGHT - 9;
+    const sy = sprite.y + INSPECTOR_TOP_OFFSET - 9;
     for (let i = 0; i < 5; i += 1) {
       ctx.globalAlpha = 0.42 - i * 0.075;
       ctx.fillRect(sx0 - i, Math.round(sy + i), sw + i * 2, 1);
@@ -1159,6 +1105,18 @@ export function drawScene(ctx, opts = {}) {
     );
   }
 
+  // Atmosphere and optional software postprocessing may wash over the hood.
+  // Restore the opening as one flat black void at every mood and idle frame.
+  // This is well above the table; no controls or scene geometry are changed.
+  if (sprite) {
+    ctx.save();
+    if (scaleK !== 1) ctx.scale(scaleK, scaleK);
+    ctx.fillStyle = "#000000";
+    for (const run of sprite.voidRuns) {
+      ctx.fillRect(sprite.x + run.x, sprite.y + run.y, run.w, 1);
+    }
+    ctx.restore();
+  }
   return { window: windowRect };
 }
 
@@ -1395,9 +1353,9 @@ function drawInspectorBlocking(ctx, cam) {
   const v = toView(cam, [0, 0.72, 1.72]);
   if (v[2] < NEAR_Z) return null;
   const base = projectView(cam, v);
-  const frame = getInspectorFrame(false, 0, 0);
+  const frame = getInspectorFrame(false, 0);
   const originX = Math.round(base[0] - SPRITE_WIDTH / 2);
-  const originY = Math.round(base[1] - SPRITE_HEIGHT + 14);
+  const originY = Math.round(base[1] - INSPECTOR_TOP_OFFSET + 14);
   ctx.fillStyle = "rgb(232,232,232)";
   for (const run of frame.runs) ctx.fillRect(originX + run.x, originY + run.y, run.w, 1);
   return { x: originX, y: originY };

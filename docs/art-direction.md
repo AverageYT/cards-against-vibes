@@ -39,28 +39,33 @@ stock; the darkest 40 % is the carriage walls and coat.
 | Brass | `brass0`–`brass3` | Trim, lamp shade, hinges, buckles |
 | Amber | `amber0`–`amber2` | Bulb, light cone, halo |
 | Coat | `coat0`–`coat4` | Hood, coat, lighting ramp |
-| Skin | `skin0`–`skin2` | Face and hands only |
+| Skin | `skin0`–`skin2` | Available to other art; never used for the cloaked Inspector |
 | Seal | `seal0`, `seal1` | Accents only (conditions, wax) |
 | Paper | `paper0`, `paper1`, `unlisted0` | Ticket stock |
 
-**Edge treatment.** No outlines on 3D geometry (PS1 lineage); the 2D sprite keeps
-a 1 px dark rim only on the hood so it separates from the wall.
+**Edge treatment.** No outlines on 3D geometry (PS1 lineage); a restrained
+1 px cool rim on the hood and shoulder separates the cloth from the wall.
 
 **Detail density.** Geometry carries form; the sprite carries character. No
 interior detail thinner than 1 internal pixel (≈ 4 screen px at 1280 wide).
 
 ## 3. The Inspector sprite
 
-Composed procedurally from primitives (ellipses, quadratic shoulder curve,
-tapering coat trapezoid) on the 1 px grid, so the silhouette is exactly
-symmetric. 72 × 56 px.
+Composed procedurally at the 1 px grid: a raised hood with a pure black,
+featureless opening and a broad, continuous cloak. The 104 × 70 px sprite
+extends below the far tabletop, which occludes the hem. No face, eyes, hands,
+buttons or exposed body are drawn.
 
-- **Silhouette read**: hood arch + shoulder slope must be legible in one colour.
-- **Secondary action**: 1 px breathing (~0.25 Hz), occasional 1 px head tilt,
-  1 px hand lift. Four-frame idle — subtle, never distracting.
-- **Window reflection**: a 10 % alpha mirrored smear inside the glass.
-- **Mood grade**: `warm` (mid-duel) tints him toward amber; `cold` (results)
-  tints toward rain-blue.
+- **Silhouette read**: the hood arch, broad shoulder slope and long cloth folds
+  remain identifiable against the carriage; a subdued cool rim traces the hood
+  and shoulder, with sparse light on seams.
+- **Existing idle**: slight breathing and head tilt remain cosmetic. The cloak
+  has no separate visible hand. New event-driven poses are reserved for Art
+  Phase 5.
+- **Window reflection**: a faint mirrored smear stays inside the glass, never
+  inside the hood opening.
+- **Mood grade**: warm and cold light tint the cloth only. The hood opening is
+  repainted pure black after atmosphere and the optional software post pass.
 
 ## 4. Ticket stock
 

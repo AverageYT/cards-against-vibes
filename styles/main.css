@@ -130,14 +130,6 @@ summary:focus-visible {
   filter: saturate(1.02);
 }
 
-.carriage-stage.is-soft::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse at 50% 42%, rgba(240, 191, 124, 0.12), transparent 62%);
-  mix-blend-mode: screen;
-}
-
 .stage-veil {
   position: fixed;
   inset: 0;
@@ -2891,7 +2883,8 @@ summary:focus-visible {
     position: fixed;
     z-index: 6;
     left: var(--fx-counter-left);
-    top: var(--fx-counter-top);
+    /* Keep the counter above the far fan even when six or more tickets spread. */
+    top: calc(var(--fx-fan-far-top) - 4.5rem);
     transform: translate(-50%, -50%);
   }
 
@@ -2899,7 +2892,8 @@ summary:focus-visible {
     position: fixed;
     z-index: 6;
     left: var(--fx-lamps-left);
-    top: max(7.6rem, var(--fx-lamps-top));
+    /* Keep the rack below the controls when the Locker button adds a second row. */
+    top: max(9.2rem, var(--fx-lamps-top));
     transform: translate(-50%, -50%);
   }
 
@@ -2914,7 +2908,8 @@ summary:focus-visible {
   .streak-box {
     position: fixed;
     z-index: 6;
-    left: var(--fx-bell-left);
+    /* Leave the near fan room to grow without covering the bell. */
+    left: min(calc(100vw - 4.5rem), calc(var(--fx-bell-left) + 7rem));
     top: var(--fx-bell-top);
     transform: translate(-50%, -50%);
   }
@@ -2922,7 +2917,8 @@ summary:focus-visible {
   .manifest-drawer {
     position: fixed;
     z-index: 6;
-    left: var(--fx-manifest-left);
+    /* Keep the ledger alongside, not underneath, a wide passenger fan. */
+    left: max(7rem, calc(var(--fx-manifest-left) - 8rem));
     top: var(--fx-manifest-top);
     transform: translate(-50%, -50%);
   }
@@ -3364,7 +3360,7 @@ summary:focus-visible {
     top: 100%;
     bottom: auto;
     /* Open away from the stamp wells; clamp to the viewport on small laptops. */
-    left: max(-11.5rem, calc(6rem - var(--fx-manifest-left)));
+    left: max(-11.5rem, calc(14rem - var(--fx-manifest-left)));
     margin-top: 0.28rem;
     width: 11.5rem;
     min-width: 0;
@@ -3393,15 +3389,15 @@ summary:focus-visible {
 
   .stamp-tray-header {
     position: absolute;
-    left: 50%;
-    bottom: calc(100% + 0.12rem);
-    transform: translateX(-50%);
+    right: calc(100% + 0.5rem);
+    top: 50%;
+    transform: translateY(-50%);
     display: flex;
     justify-content: center;
     gap: 0.15rem;
     flex-direction: column;
-    width: max-content;
-    max-width: 14rem;
+    width: 9rem;
+    max-width: 9rem;
     white-space: normal;
     text-align: center;
     font-size: 0.54rem;
@@ -3460,10 +3456,11 @@ summary:focus-visible {
       0 0 8px rgba(240, 205, 139, 0.4);
   }
 
-  /* Populated wells expand to keep the benefit and tradeoff readable. */
+  /* Compact physical stamps leave the fan clear. Full benefit and tradeoff
+   * remain in the accessible name and appear on hover or keyboard focus. */
   .stamp-tray .stamp-slot:not(.is-empty) {
     width: 7.6rem;
-    min-height: 4.4rem;
+    min-height: 4rem;
     height: auto;
     padding: 0.35rem 0.4rem;
     border-radius: 0.6rem;
@@ -3473,7 +3470,35 @@ summary:focus-visible {
   .stamp-tray .stamp-slot-top { flex-direction: column; gap: 0.1rem; }
   .stamp-slot-name { font-size: 0.65rem; }
   .stamp-slot-status { font-size: 0.59rem; white-space: normal; opacity: 0.95; }
-  .stamp-slot-desc { font-size: 0.62rem; color: #eee2c9; }
+  .stamp-tray .stamp-slot-desc {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .stamp-tray .stamp-slot:hover .stamp-slot-desc,
+  .stamp-tray:focus-within .stamp-slot-desc {
+    left: 0;
+    bottom: calc(100% + 0.35rem);
+    z-index: 10;
+    width: 100%;
+    box-sizing: border-box;
+    height: auto;
+    padding: 0.45rem;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+    text-align: left;
+    pointer-events: none;
+    border: 1px solid var(--fx-brass-mid);
+    background: #1d1611;
+    box-shadow: 0 3px 8px #000b;
+    font-size: 0.7rem;
+    color: #eee2c9;
+  }
 
   /* ---- 8. tool rack ---- */
 
@@ -3716,4 +3741,53 @@ summary:focus-visible {
   .volume-field input[type="range"] { min-height: 44px; }
   .toggle-field { min-height: 44px; }
   #dev-trace-toggle { min-height: 44px; }
+}
+
+/* Phase 5: optional paper story objects and a non-interactive spoken receipt. */
+.story-note, .story-inspect {
+  margin: .8rem 0;
+  padding: .65rem .8rem;
+  color: #eadfc9;
+  background: transparent;
+  border-left: 3px solid #b8893f;
+  text-align: left;
+}
+.story-note p, .story-arrival { line-height: 1.45; margin: .4rem 0; }
+.story-kicker { color: #f0cd8b; font-size: .72rem; letter-spacing: .1em; font-weight: 700; }
+.story-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.story-inspect h3 { font-size: .9rem; margin: 0 0 .45rem; color: #f0cd8b; }
+.story-inspect h3 span { font-weight: normal; color: #d8c9af; }
+.story-inspect details { border-top: 1px solid #a282504f; padding: .35rem 0; }
+.story-inspect summary { cursor: pointer; color: #f2ddad; min-height: 2rem; }
+.story-inspect details p { margin: .35rem 0 .5rem; line-height: 1.45; }
+.story-arrival { color: #e7d6b6; font-style: italic; }
+.inspector-dialogue {
+  position: fixed;
+  z-index: 5;
+  top: 13.5rem;
+  right: 1rem;
+  width: 14rem;
+  padding: .5rem .65rem;
+  border-left: 2px solid #b8893f;
+  background: #11141de8;
+  color: #f1e4cc;
+  font-size: .78rem;
+  line-height: 1.35;
+  pointer-events: none;
+}
+.inspector-dialogue.is-empty { visibility: hidden; }
+@media (max-width: 1199px), (max-aspect-ratio: 4/5) {
+  .inspector-dialogue {
+    position: relative;
+    order: 2;
+    top: auto;
+    right: auto;
+    width: auto;
+    min-height: 4.5rem;
+    box-sizing: border-box;
+    margin: .5rem 1rem;
+    flex: 0 0 auto;
+  }
+  .story-actions button { min-height: 44px; }
+  .story-inspect summary { min-height: 44px; display: flex; align-items: center; }
 }

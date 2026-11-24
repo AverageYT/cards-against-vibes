@@ -85,6 +85,8 @@
               <span class="icon-toggle-glyph" aria-hidden="true">◫</span>
               <span class="icon-toggle-label">HUD</span>
             </button>
+            <button type="button" class="icon-toggle" id="dialogue-mute" aria-pressed="false" aria-label="Mute Inspector remarks" title="Mute Inspector remarks">Talk</button>
+            <button type="button" class="icon-toggle" id="dialogue-skip" aria-label="Skip Inspector remark" title="Dismiss current Inspector remark">×</button>
             <label class="toggle-field" for="reduced-motion-toggle">
               <input id="reduced-motion-toggle" type="checkbox" />
               <span>Reduced motion</span>
@@ -109,6 +111,8 @@
         <span aria-hidden="true">◫</span> Show HUD <kbd>H</kbd>
       </button>
 
+      <aside id="inspector-dialogue" class="inspector-dialogue is-empty" aria-live="polite" aria-atomic="true" aria-label="Inspector remark"></aside>
+
       <!-- 1. TITLE SCREEN -->
       <main id="title-screen" class="screen-panel title-screen" aria-labelledby="title-heading">
         <div class="title-card">
@@ -121,6 +125,12 @@
             <strong>Punched Stubs</strong> in the Platform Locker to survive the line — never be left
             holding <strong>The Unlisted</strong>.
           </p>
+
+          <section class="story-note" id="story-intro" aria-label="Opening story">
+            <span class="story-kicker">A NIGHT DEPARTURE</span>
+            <p id="story-intro-text"></p>
+            <div class="story-actions"><button type="button" class="btn btn-subtle btn-sm" id="story-intro-next">Next</button><button type="button" class="btn btn-subtle btn-sm" id="story-intro-skip">Skip intro</button></div>
+          </section>
 
           <div class="title-cta-row">
             <button type="button" class="btn btn-brass btn-lg" id="title-primary-btn">
@@ -228,6 +238,12 @@
           <h2 id="briefing-title" class="screen-title">Third-Class Coach</h2>
           <p class="briefing-station" id="briefing-station">Station: Alder Halt (Unlit)</p>
           <p class="briefing-desc" id="briefing-desc"></p>
+
+          <p class="story-arrival" id="story-arrival"></p>
+          <section class="story-inspect" aria-label="Optional carriage items">
+            <h3>Look around the carriage <span>(optional)</span></h3>
+            <div id="story-items"></div>
+          </section>
 
           <div class="briefing-facts" id="briefing-facts"></div>
 
@@ -498,6 +514,12 @@
           <p class="screen-kicker" id="run-over-kicker">END OF THE LINE</p>
           <h2 id="run-over-title" class="title-display">MANIFEST CLEARED</h2>
           <p class="result-body" id="run-over-body"></p>
+
+          <section class="story-note" id="story-ending" aria-label="Ending story">
+            <span class="story-kicker">END OF THE LINE</span>
+            <p id="story-ending-text"></p>
+            <div class="story-actions"><button type="button" class="btn btn-subtle btn-sm" id="story-ending-next">Next</button><button type="button" class="btn btn-subtle btn-sm" id="story-ending-skip">Skip ending</button></div>
+          </section>
 
           <section
             class="payout-receipt hidden"

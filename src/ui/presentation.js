@@ -10,6 +10,7 @@
  */
 
 import { mountStage } from "../visuals/stage.js";
+import { createInspectorMotion } from "../visuals/inspectorMotion.js";
 import { describeLayout } from "../visuals/scene.js";
 import { FAN_BANDS, resolveFixtures } from "../visuals/fixtures.js";
 import { projectFramePoint, sceneTransform } from "../visuals/layout.js";
@@ -17,7 +18,7 @@ import { createSoundEngine, SOUND_IDS } from "../audio/sound.js";
 import { createMotionRail, createSwayController, getMotionProfile, cueForEvent } from "../visuals/motion.js";
 import { cachedTicketFace, cachedTicketBack, emblemSvg, stampMarkDataUri } from "../visuals/tickets.js";
 import { RUN_SCREENS } from "../core/run.js";
-import { SIDES } from "../core/engine.js";
+import { PHASES, SIDES } from "../core/engine.js";
 
 const PREFS_KEY = "the_unlisted_presentation_v1";
 
@@ -116,6 +117,12 @@ export function mountPresentation({
   const motion = createMotionRail({ doc });
   const sway = createSwayController({ root: doc.getElementById("app"), raf, caf });
 
+  // Cosmetic poses use only public observer snapshots, never hidden hands.
+  const inspectorMotion = createInspectorMotion();
+  let posePhaseKey = null;
+  let poseResolutionKey = null;
+  let poseScope = null;
+
   // ---------------------------------------------------------------- stage
   const stageHost = doc.getElementById("carriage-stage");
   stage = mountStage({
@@ -123,11 +130,12 @@ export function mountPresentation({
     container: stageHost,
     raf,
     caf,
-    getDescriptor: () => ({
+    getDescriptor: (now) => ({
       scene: currentScreen,
       mood: moodForScreen(currentScreen),
       reducedMotion,
       framing: currentFraming(),
+      inspectorPose: inspectorMotion.sample(now),
     }),
   });
   if (stage) stage.setSettings({ pixelation, dither: 1, scanlines: true, vignette: 0.5 });
@@ -514,6 +522,32 @@ export function mountPresentation({
       });
     }
     lastStatusStage = snap.statusStage;
+
+    // Only public phase/actor and publicly displayed resolution drive the pose.
+    // A reaction wins when events coincide; the next public phase can retarget.
+    inspectorMotion.setReducedMotion(reducedMotion);
+    const inDuel = snap.screen === RUN_SCREENS.DUEL || snap.screen === RUN_SCREENS.TUTORIAL;
+    const scope = `${snap.screen}|${snap.stopIndex ?? ''}|${snap.dealNumberInStop ?? ''}|${snap.encounterIndex ?? ''}`;
+    if (!inDuel || scope !== poseScope) {
+      inspectorMotion.reset();
+      posePhaseKey = null;
+      poseResolutionKey = null;
+      poseScope = inDuel ? scope : null;
+    }
+    const v = inDuel ? snap.view : null;
+    const res = v?.lastResolution;
+    const resKey = res && snap.activeSpotlight ? `${res.turnNumber}|${res.offerId}|${res.drawer}` : null;
+    const phasePose = v?.phase === PHASES.OFFER && v.offerer === SIDES.INSPECTOR ? 'offer'
+      : v?.phase === PHASES.DRAW && v.drawer === SIDES.INSPECTOR ? 'draw' : null;
+    const phaseKey = phasePose ? `${phasePose}|${v.turnNumber}|${v.offerId}` : null;
+    if (resKey && resKey !== poseResolutionKey) {
+      poseResolutionKey = resKey;
+      posePhaseKey = phaseKey;
+      inspectorMotion.trigger('react');
+    } else if (phaseKey && phaseKey !== posePhaseKey) {
+      posePhaseKey = phaseKey;
+      inspectorMotion.trigger(phasePose);
+    }
 
     // Draw / pair resolution cue.
     feedbackForResolution(snap.view);
